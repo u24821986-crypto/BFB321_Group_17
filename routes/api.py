@@ -79,7 +79,7 @@ def get_all_harvests():
     limit = request.args.get('limit', 10, type=int)
     block = request.args.get('block', default=None, type=str)
 
-    # Mock database list (Chantel will replace this with a real SQL SELECT query)
+    # Mock database list (Mfanelo will replace this with a real SQL SELECT query)
     mock_db = [
         {"id": 1, "block": "Block1", "crates": 100},
         {"id": 2, "block": "Block2", "crates": 150},

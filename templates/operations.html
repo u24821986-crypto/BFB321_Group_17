@@ -250,7 +250,75 @@
 
          const dateNotes = document.getElementById("DateNotes");
         dateNotes.value = todayString;
-        
+
+                // --- INTEGRATION: FORM SUBMISSIONS ---
+
+        // Function to handle form submissions
+        async function submitFormData(event, endpoint) {
+            event.preventDefault(); // Stop the page from refreshing
+            
+            const form = event.target;
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            // Change button text to show loading state
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = "Saving...";
+            submitBtn.disabled = true;
+
+            try {
+                // Send the data to the API
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    alert("Success! Data saved to the database.");
+                    form.reset(); // Clear the form
+                } else {
+                    alert("Error: The server rejected the data.");
+                }
+            } catch (error) {
+                console.error("API Connection Error:", error);
+                alert("Could not connect to the server. Is the backend running?");
+            } finally {
+                // Reset the button text
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Connect the forms to the function when the page loads
+        document.addEventListener("DOMContentLoaded", () => {
+            // 1. Team Information Form
+            const teamForm = document.querySelector('form[action="/Team-Leader"]');
+            if (teamForm) {
+                teamForm.addEventListener('submit', (e) => submitFormData(e, '/api/team'));
+            }
+
+            // 2. Harvested Crates Form
+            const harvestForm = document.querySelector('form[action="/Harvesting"]');
+            if (harvestForm) {
+                harvestForm.addEventListener('submit', (e) => submitFormData(e, '/api/harvest'));
+            }
+
+            // 3. Logistics Form
+            const logisticsForm = document.querySelector('form[action="/Logistics"]');
+            if (logisticsForm) {
+                logisticsForm.addEventListener('submit', (e) => submitFormData(e, '/api/logistics'));
+            }
+
+            // 4. Operational Notes Form
+            const notesForm = document.querySelector('form[action="/Summary"]');
+            if (notesForm) {
+                notesForm.addEventListener('submit', (e) => submitFormData(e, '/api/notes'));
+            }
+        });
     </script>
 </body>
 </html>

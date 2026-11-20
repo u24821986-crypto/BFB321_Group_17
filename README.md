@@ -108,3 +108,31 @@ All Python models have been tested and validated using `pytest`.
 *   Pytest
 *   Git & GitHub
 *   GitHub Copilot
+
+
+---
+
+## Deployment & Operations
+
+### Environment Variables
+The application uses a `.env` file for configuration. A template is provided in the repository as `.env.example`. To run the app locally, create a `.env` file and add your database credentials and secret key. Do not commit the `.env` file to GitHub.
+
+### Logging & Monitoring
+Basic logging has been implemented using Python's built-in `logging` module. All application errors and startup events are logged to `app.log` with timestamps to help trace issues.
+
+### Live Deployment
+The application is hosted online and can be accessed via the following live link:
+**Live URL:** [INSERT RENDER LINK HERE]
+
+**Note:** The free tier on Render may take 30-50 seconds to spin up the app if it has been idle.
+
+---
+
+## Task Allocation
+
+| Team Member | Student Number | GitHub Username | Primary Role | Tasks Completed |
+| :--- | :--- | :--- | :--- | :--- |
+| **Seloko Mothupi** | 24804232 | `u24804232-stack` | Integration | Connected HTML forms to API, dynamic dashboard |
+| **Mfanelo Shilubana** | 18142002 | `MfaneloS` | API | Built Flask routes, JSON endpoints, error handling |
+| **Chantel Mogale** | 24821986 | `u24821986-crypto` | Deployment | `.env` setup, logging, Render deployment, README update |
+| **Livhuwani Ndou** | 23549743 | `u23549743` | Database | Designed ERD, wrote schema.sql, set up MySQL |

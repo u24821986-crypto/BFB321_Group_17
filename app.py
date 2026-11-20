@@ -30,10 +30,9 @@ def create_app(env: str | None = None) -> Flask:
     _configure_logging(app)
     db.init_app(app)
 
-    # --- Register blueprints (Routes) ---
-    # (The team's routes will be added here later)
-    # from routes.harvest import harvest_bp
-    # app.register_blueprint(harvest_bp, url_prefix="/api/harvest")
+      # --- Register blueprints (Routes) ---
+    from routes.api import api_bp
+    app.register_blueprint(api_bp, url_prefix="/api")
 
     _register_error_handlers(app)
 

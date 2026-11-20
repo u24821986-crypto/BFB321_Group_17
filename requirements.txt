@@ -1,7 +1,6 @@
 Flask
-Flask-SQLAlchemy
-python-dotenv
-pytest
+flask-sqlalchemy
 pymysql
-cryptography
+python-dotenv
 gunicorn
+pytest

@@ -123,6 +123,17 @@ All Python models have been tested and validated using `pytest`.
 
 ## Deployment & Operations
 
+### API Endpoints
+The application exposes the following REST API endpoints:
+
+| Method | Endpoint | Description | Request Body (JSON) | Response |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/api/dashboard` | Fetches data for KPI cards and charts | None | `{"harvestValues": [82...], "destinationValues": [420...]}` |
+| `POST` | `/api/team` | Saves Team Information | `{"teamInfo": "John", "operationBlock": "Block1"}` | `{"status": "success", "message": "Team info saved"}` |
+| `POST` | `/api/harvest` | Saves Harvested Crates data | `{"CratesHarvested": 100, "NumOfTrees": 5}` | `{"status": "success", "message": "Harvest saved"}` |
+| `POST` | `/api/logistics` | Saves Logistics data | `{"tripNumber": 1, "vehicleType": "Truck"}` | `{"status": "success", "message": "Logistics saved"}` |
+| `POST` | `/api/notes` | Saves Operational Notes | `{"delaysInfo": "None", "remarksInfo": "Good"}` | `{"status": "success", "message": "Notes saved"}` |
+
 ### Environment Variables & Configurations
 The application uses a `.env` file for configuration. A template is provided in the repository as `.env.example`. To run the app locally, create a `.env` file and add your database credentials and secret key. Do not commit the `.env` file to GitHub.
 Environment configurations are handled in `config.py`:

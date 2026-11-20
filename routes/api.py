@@ -8,7 +8,6 @@ api_bp = Blueprint('api', __name__)
 def get_dashboard_data():
     """
     Returns data for the dashboard charts.
-    (Mfanelo will later replace the mock data with a real database query)
     """
     # Mock data to prove the connection works
     mock_harvest = [82, 96, 74, 118, 105, 132, 110]
@@ -29,7 +28,6 @@ def save_team_info():
     if not data or 'teamInfo' not in data:
         return jsonify({"error": "Missing team leader name"}), 400
         
-    # (Mfanelo will insert this into the MySQL database here)
     print("Received Team Data:", data)
     
     return jsonify({"status": "success", "message": "Team info saved"}), 201
@@ -43,7 +41,6 @@ def save_harvest():
     if not data or 'CratesHarvested' not in data:
         return jsonify({"error": "Missing crates harvested"}), 400
         
-    # (Mfanelo will insert this into the MySQL database here)
     print("Received Harvest Data:", data)
     
     return jsonify({"status": "success", "message": "Harvest saved"}), 201
@@ -57,7 +54,6 @@ def save_logistics():
     if not data or 'tripNumber' not in data:
         return jsonify({"error": "Missing trip number"}), 400
         
-    # (Mfanelo will insert this into the MySQL database here)
     print("Received Logistics Data:", data)
     
     return jsonify({"status": "success", "message": "Logistics saved"}), 201
@@ -68,7 +64,6 @@ def save_logistics():
 def save_notes():
     data = request.get_json()
     
-    # (Mfanelo will insert this into the MySQL database here)
     print("Received Notes Data:", data)
     
     return jsonify({"status": "success", "message": "Notes saved"}), 201

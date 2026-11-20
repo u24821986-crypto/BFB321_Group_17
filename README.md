@@ -36,9 +36,15 @@ python3 -m venv .venv
 source .venv/bin/activate
 
 ### 3. Install Dependencies
-pip install pytest
+pip install -r requirements.txt
 
-### 4. Run the Unit Test Suite
+### 4. Setup Environment Variables
+Copy the `.env.example` file to a new file named `.env`:
+```bash```
+cp .env.example .env
+Open `.env` and add your MySQL database credentials and a secure `SECRET_KEY`.
+
+### 5. Run the Unit Test Suite
 Execute the automated test suite:
 python -m pytest
 
@@ -61,11 +67,16 @@ The frontend is a static web prototype built with HTML, CSS, and JavaScript. It 
 ---
 
 ## Folder Structure
-```text
+
 BFB321_Project/
 │
 ├── README.md                  # This file
 ├── .gitignore                 # Git ignore file
+├── .env.example               # Environment variable template
+├── requirements.txt           # Python dependencies
+├── config.py                  # Environment-specific configurations
+├── app.py                     # Flask application entry point
+├── Procfile                   # Deployment run command for Render
 │
 ├── models/                    # Python logic files
 │   ├── bottleneck_model.py
@@ -84,8 +95,6 @@ BFB321_Project/
     ├── login.html
     ├── dashboard.html
     └── operations.html
-
----
 
 ## Project Status
 The current implementation includes:
@@ -114,15 +123,38 @@ All Python models have been tested and validated using `pytest`.
 
 ## Deployment & Operations
 
-### Environment Variables
+### Environment Variables & Configurations
 The application uses a `.env` file for configuration. A template is provided in the repository as `.env.example`. To run the app locally, create a `.env` file and add your database credentials and secret key. Do not commit the `.env` file to GitHub.
+Environment configurations are handled in `config.py`:
+*   `DevelopmentConfig`: Used locally (Debug on).
+*   `TestingConfig`: Used by Pytest (uses a separate test database).
+*   `ProductionConfig`: Used on live servers (Debug off).
 
 ### Logging & Monitoring
-Basic logging has been implemented using Python's built-in `logging` module. All application errors and startup events are logged to `app.log` with timestamps to help trace issues.
+Basic logging has been implemented using Python's built-in `logging` module. All application errors and startup events are logged to `app.log` with timestamps. 
+*   The log file rotates at 1MB (keeping 3 backups).
+*   Centralised error handlers capture 400, 404, and 500 errors and return clean JSON responses.
 
-### Live Deployment
-The application is hosted online and can be accessed via the following live link:
+### Database Backup & Restore
+To ensure data safety, the following backup routine is recommended for production:
+**Backup (Daily):**
+mysqldump -u root -p smartharvest > backups/smartharvest_$(date +%F).sql
+**Restore:**
+mysql -u root -p smartharvest < backups/smartharvest_2026-11-20.sql
+*(Retention: Keep 14 days of local backups. If hosted on Render, utilize the platform's automated database backups).*
+
+### Live Deployment (Render)
+The application is hosted on Render. 
 **Live URL:** [INSERT RENDER LINK HERE]
+
+**Render Deployment Runbook:**
+1. Push changes to the `main` branch on GitHub.
+2. Render automatically detects changes and triggers a build.
+3. **Build Command:** `pip install -r requirements.txt`
+4. **Start Command:** `gunicorn "app:create_app()" --bind 0.0.0.0:$PORT` (Configured in the `Procfile`).
+5. **Environment Variables:** Set `FLASK_ENV=production`, `SECRET_KEY`, and `DATABASE_URL` in the Render dashboard.
+6. **Rollback Plan:** Use the Render dashboard to redeploy a previous successful commit.
+
 
 **Note:** The free tier on Render may take 30-50 seconds to spin up the app if it has been idle.
 
@@ -130,9 +162,11 @@ The application is hosted online and can be accessed via the following live link
 
 ## Task Allocation
 
+## Task Allocation
+
 | Team Member | Student Number | GitHub Username | Primary Role | Tasks Completed |
 | :--- | :--- | :--- | :--- | :--- |
-| **Seloko Mothupi** | 24804232 | `u24804232-stack` | Integration | Connected HTML forms to API, dynamic dashboard |
-| **Mfanelo Shilubana** | 18142002 | `MfaneloS` | API | Built Flask routes, JSON endpoints, error handling |
-| **Chantel Mogale** | 24821986 | `u24821986-crypto` | Deployment | `.env` setup, logging, Render deployment, README update |
-| **Livhuwani Ndou** | 23549743 | `u23549743` | Database | Designed ERD, wrote schema.sql, set up MySQL |
+| **Livhuwani Ndou** | 23549743 | `u23549743` | Database & Schema | Created MySQL database, wrote ERD and schema.sql, created seed data |
+| **Chantel Mogale** | 24821986 | `u24821986-crypto` | Flask API & Endpoints | Built Flask routes, ensured GET/POST/PUT requests work, formatted JSON responses |
+| **Seloko Mothupi** | 24804232 | `u24804232-stack` | Connection & Integration | Connected HTML forms to API, updated dashboard KPIs from DB, verified 3 end-to-end flows |
+| **Mfanelo Shilubana** | 18142002 | `MfaneloS` | Deployment & Report | Hosted app on Render, wrote .env and config.py, updated README, wrote 10-mark report |

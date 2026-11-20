@@ -217,20 +217,12 @@
             String(today.getDate()).padStart(2, "0")
         ].join("-");
 
-        const farmGreen = "#005333";
+              const farmGreen = "#005333";
         const farmGold = "#f9d000";
-        const harvestValues = [82, 96, 74, 118, 105, 132, 110];
-        const destinationValues = [420, 200, 60];
-        const totalHarvested = harvestValues.reduce((total, crates) => total + crates, 0);
-        const totalDispatched = destinationValues.reduce((total, crates) => total + crates, 0);
-        const cratesAwaitingTransport = Math.max(totalHarvested - totalDispatched, 0);
-        const cratesAtShiftEnd = Math.max(
-            [...document.querySelectorAll("#shiftOverviewTable tbody tr")]
-                .reduce((sum, row) => sum + Number(row.cells[6].textContent), 0) -
-            [...document.querySelectorAll("#logisticsOverviewTable tbody tr")]
-                .reduce((sum, row) => sum + Number(row.cells[6].textContent), 0),
-            0
-        );
+
+        // Default data (will be replaced by API)
+        let harvestValues = [0, 0, 0, 0, 0, 0, 0];
+        let destinationValues = [0, 0, 0];
 
         function updateKpi(cardId, valueId, statusId, value, isBottleneck) {
             const card = document.getElementById(cardId);
@@ -244,14 +236,60 @@
             status.textContent = isBottleneck ? "Bottleneck" : "On track";
         }
 
-        const cratesHarvestedToday = harvestValues[harvestValues.length - 1];
-        updateKpi("harvestKpi", "harvestValue", "harvestStatus",
-            cratesHarvestedToday, cratesHarvestedToday < 100);
-        updateKpi("transportKpi", "transportValue", "transportStatus",
-            cratesAwaitingTransport, cratesAwaitingTransport > 0);
-        updateKpi("shiftEndKpi", "shiftEndValue", "shiftEndStatus",
-            cratesAtShiftEnd, cratesAtShiftEnd > 0);
+        async function loadDashboardData() {
+            try {
+                // Fetch data from API
+                const response = await fetch('/api/dashboard');
+                if (response.ok) {
+                    const data = await response.json();
+                    harvestValues = data.harvestValues;
+                    destinationValues = data.destinationValues;
+                }
+            } catch (error) {
+                console.warn("API not ready yet. Showing default data.");
+            }
 
+            // Update the numbers
+            const cratesHarvestedToday = harvestValues[harvestValues.length - 1];
+            const totalHarvested = harvestValues.reduce((total, crates) => total + crates, 0);
+            const totalDispatched = destinationValues.reduce((total, crates) => total + crates, 0);
+            const cratesAwaitingTransport = Math.max(totalHarvested - totalDispatched, 0);
+            const cratesAtShiftEnd = Math.max(
+                [...document.querySelectorAll("#shiftOverviewTable tbody tr")]
+                    .reduce((sum, row) => sum + Number(row.cells[6].textContent), 0) -
+                [...document.querySelectorAll("#logisticsOverviewTable tbody tr")]
+                    .reduce((sum, row) => sum + Number(row.cells[6].textContent), 0),
+                0
+            );
+
+            updateKpi("harvestKpi", "harvestValue", "harvestStatus",
+                cratesHarvestedToday, cratesHarvestedToday < 100);
+            updateKpi("transportKpi", "transportValue", "transportStatus",
+                cratesAwaitingTransport, cratesAwaitingTransport > 0);
+            updateKpi("shiftEndKpi", "shiftEndValue", "shiftEndStatus",
+                cratesAtShiftEnd, cratesAtShiftEnd > 0);
+        }
+        
+                // Update the charts with the new data
+        function updateCharts() {
+            // Update the line chart
+            const harvestChart = Chart.getChart("harvestChart");
+            if (harvestChart) {
+                harvestChart.data.datasets[0].data = harvestValues;
+                harvestChart.update();
+            }
+            
+            // Update the doughnut chart
+            const destinationChart = Chart.getChart("destinationChart");
+            if (destinationChart) {
+                destinationChart.data.datasets[0].data = destinationValues;
+                destinationChart.update();
+            }
+        }
+
+        // Call the functions when the page loads
+        loadDashboardData().then(updateCharts);
+        
         new Chart(document.getElementById("harvestChart"), {
             type: "line",
             data: {

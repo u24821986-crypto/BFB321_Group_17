@@ -17,8 +17,6 @@
                 <p class="mb-0">Record daily production performance across the farm.</p>
             </div>
             <div class="d-flex align-items-center gap-3">
-                
-                <!-- FIXED: Changed dashboard.html to /dashboard -->
                 <a href="/dashboard" class="btn btn-warning fw-bold">Dashboard</a>
             </div>
         </div>
@@ -58,8 +56,6 @@
                                         <option value="Block7">Block 7</option>
                                     </select>
                                 </div>
-
-
                                 <div class="mb-3">
                                     <label for="NumOfWorkers" class="form-label">Number of Workers<span class="small text-secondary">(required)</span></label>
                                     <input type="number" id="NumOfWorkers" name="NumOfWorkers" class="form-control" min="0">
@@ -87,7 +83,7 @@
                             <form action="/Harvesting" method="post">
                                 <div class="mb-3">
                                     <label for="Team" class="form-label">Team Leader<span class="small text-secondary">(required)</span></label>
-                                    <input type="number" id="Team" name="Team" class="form-control" min="0" required>
+                                    <input type="text" id="Team" name="Team" class="form-control" required>
                                 </div>
                                 <div class="mb-3">
                                     <label for="CratesHarvested" class="form-label">Crates Harvested<span class="small text-secondary">(required)</span></label>
@@ -111,7 +107,6 @@
                                         <input type="time" id="TimeHarvested" name="TimeHarvested" class="form-control">
                                     </div>
                                 </div>
-
                                 <button type="submit" class="btn btn-success w-100">Submit Harvesting Details</button>
                             </form>
                         </div>
@@ -161,19 +156,15 @@
                                 <label for="numCrates" class="form-label">Number of Crates Initially Loaded</label>
                                 <input type="number" id="numCrates" name="numCrates" class="form-control" min="0" required>
                             </div>
-                        </div>
-
-                        <div class="col-md-6">
+                            <div class="col-md-6">
                                 <label for="numCratesDest" class="form-label">Number of Crates at Destination</label>
                                 <input type="number" id="numCratesDest" name="numCratesDest" class="form-control" min="0" required>
                             </div>
-
-                        <div class="row g-3 mt-1">
-                            <div class="col-6">
+                            <div class="col-md-6">
                                 <label for="DateTransport" class="form-label">Date</label>
                                 <input type="date" id="DateTransport" name="DateHarvested" class="form-control">
                             </div>
-                            <div class="col-6">
+                            <div class="col-md-6">
                                 <label for="time" class="form-label">Truck/Bakkie Departure Time(optional)</label>
                                 <input type="time" id="time" name="time" class="form-control">
                             </div>
@@ -193,9 +184,9 @@
                 <div class="card-body">
                     <form action="/Summary" method="post">
                         <div class="mb-3">
-                                    <label for="endShiftCrates" class="form-label">End shift Crates <span class="small text-secondary">(required)</span></label>
-                                    <input type="number" id="endShiftCrates" name="endShiftCrates" class="form-control" min="0">
-                                </div>
+                            <label for="endShiftCrates" class="form-label">End shift Crates <span class="small text-secondary">(required)</span></label>
+                            <input type="number" id="endShiftCrates" name="endShiftCrates" class="form-control" min="0">
+                        </div>
                         <div class="mb-3">
                             <label for="delaysInfo" class="form-label">Delays</label>
                             <input type="text" id="delaysInfo" name="delaysInfo" class="form-control">
@@ -221,9 +212,7 @@
         </section>
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
     <script>
-        
         const today = new Date();
         const todayString = [
             today.getFullYear(),
@@ -239,86 +228,57 @@
             input.value = currentTime;
         });
 
-         const datetransport = document.getElementById("DateTransport");
-        datetransport.value = todayString;
+        document.getElementById("DateTransport").value = todayString;
+        document.getElementById("DateHarvested").value = todayString;
+        document.getElementById("DateTeam").value = todayString;
+        document.getElementById("DateNotes").value = todayString;
 
-        const dateHarvested = document.getElementById("DateHarvested");
-        dateHarvested.value = todayString;
-
-         const dateTeam = document.getElementById("DateTeam");
-        dateTeam.value = todayString;
-        
-
-         const dateNotes = document.getElementById("DateNotes");
-        dateNotes.value = todayString;
-
-                // --- INTEGRATION: FORM SUBMISSIONS ---
-
-        // Function to handle form submissions
         async function submitFormData(event, endpoint) {
-            event.preventDefault(); // Stop the page from refreshing
-            
+            event.preventDefault();
             const form = event.target;
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData.entries());
+            const data = Object.fromEntries(new FormData(form).entries());
 
-            // Change button text to show loading state
             const submitBtn = form.querySelector('button[type="submit"]');
             const originalText = submitBtn.textContent;
             submitBtn.textContent = "Saving...";
             submitBtn.disabled = true;
 
             try {
-                // Send the data to the API
                 const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(data)
                 });
-
+                const result = await response.json().catch(() => ({}));
                 if (response.ok) {
-                    alert("Success! Data saved to the database.");
-                    form.reset(); // Clear the form
+                    alert(result.message || "Saved successfully");
+                    form.reset();
+                    document.querySelectorAll('input[type="date"]').forEach((i) => i.value = todayString);
+                    document.querySelectorAll('input[type="time"]').forEach((i) => i.value = currentTime);
                 } else {
-                    alert("Error: The server rejected the data.");
+                    alert("Error: " + (result.message || "The server rejected the data."));
                 }
             } catch (error) {
                 console.error("API Connection Error:", error);
                 alert("Could not connect to the server. Is the backend running?");
             } finally {
-                // Reset the button text
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
             }
         }
 
-        // Connect the forms to the function when the page loads
         document.addEventListener("DOMContentLoaded", () => {
-            // 1. Team Information Form
             const teamForm = document.querySelector('form[action="/Team-Leader"]');
-            if (teamForm) {
-                teamForm.addEventListener('submit', (e) => submitFormData(e, '/api/team'));
-            }
+            if (teamForm) teamForm.addEventListener("submit", (e) => submitFormData(e, "/api/team"));
 
-            // 2. Harvested Crates Form
             const harvestForm = document.querySelector('form[action="/Harvesting"]');
-            if (harvestForm) {
-                harvestForm.addEventListener('submit', (e) => submitFormData(e, '/api/harvest'));
-            }
+            if (harvestForm) harvestForm.addEventListener("submit", (e) => submitFormData(e, "/api/harvest"));
 
-            // 3. Logistics Form
             const logisticsForm = document.querySelector('form[action="/Logistics"]');
-            if (logisticsForm) {
-                logisticsForm.addEventListener('submit', (e) => submitFormData(e, '/api/logistics'));
-            }
+            if (logisticsForm) logisticsForm.addEventListener("submit", (e) => submitFormData(e, "/api/logistics"));
 
-            // 4. Operational Notes Form
             const notesForm = document.querySelector('form[action="/Summary"]');
-            if (notesForm) {
-                notesForm.addEventListener('submit', (e) => submitFormData(e, '/api/notes'));
-            }
+            if (notesForm) notesForm.addEventListener("submit", (e) => submitFormData(e, "/api/notes"));
         });
     </script>
 </body>

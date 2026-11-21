@@ -1,4 +1,7 @@
+import os
 from datetime import date as date_cls, timedelta
+from urllib.parse import unquote, urlparse
+
 from flask import Blueprint, jsonify, request
 import pymysql
 
@@ -7,13 +10,17 @@ api_bp = Blueprint('api', __name__)
 
 
 def get_db_connection():
-    return pymysql.connect(
-        host='localhost',
-        user='root',
-        password='',      # Empty because no password was set
-        database='mydb',
-        cursorclass=pymysql.cursors.DictCursor
-    )
+    """Use DATABASE_URL (set in Render) when present, otherwise your local MySQL."""
+    url = os.getenv("DATABASE_URL")
+    if url:
+        u = urlparse(url)
+        settings = dict(host=u.hostname, port=u.port or 3306, user=unquote(u.username or ""),
+                        password=unquote(u.password or ""), database=u.path.lstrip("/"))
+    else:
+        settings = dict(host="localhost", user="root", password="", database="mydb")
+    if os.getenv("DB_SSL") == "true":  # needed by some hosted MySQL providers
+        settings["ssl"] = {"fake_flag_to_enable_tls": True}
+    return pymysql.connect(cursorclass=pymysql.cursors.DictCursor, **settings)
 
 
 # ---------- small helpers ----------

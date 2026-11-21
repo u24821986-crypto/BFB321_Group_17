@@ -14,12 +14,13 @@ Responsibilities:
 import logging
 from logging.handlers import RotatingFileHandler
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 
 from config import get_config
 
 db = SQLAlchemy()
+
 
 
 def create_app(env: str | None = None) -> Flask:
@@ -30,35 +31,41 @@ def create_app(env: str | None = None) -> Flask:
     _configure_logging(app)
     db.init_app(app)
 
-      # --- Register blueprints (Routes) ---
+    # Register blueprints (Routes)
     from routes.api import api_bp
     app.register_blueprint(api_bp, url_prefix="/api")
 
-    _register_error_handlers(app)
-
-    @app.route("/health")
-    def health():
-        """Render health check."""
-        return jsonify(status="ok"), 200
-
-    app.logger.info("SmartHarvest app started (env=%s)", app.config.get("ENV"))
-    return app
-    
+    # Website routes
     @app.route("/")
     def home():
-        return app.send_static_file("../templates/index.html")
-        
+        return render_template("index.html")
+
     @app.route("/login")
     def login():
-        return app.send_static_file("../templates/login.html")
+        return render_template("login.html")
 
     @app.route("/operations")
     def operations():
-        return app.send_static_file("../templates/operations.html")
+        return render_template("operations.html")
 
     @app.route("/dashboard")
     def dashboard():
-        return app.send_static_file("../templates/dashboard.html")
+        return render_template("dashboard.html")
+
+    # Health check
+    @app.route("/health")
+    def health():
+        return jsonify(status="ok"), 200
+
+    _register_error_handlers(app)
+
+    app.logger.info(
+        "SmartHarvest app started (env=%s)",
+        app.config.get("ENV")
+    )
+
+    return app
+
 
 def _configure_logging(app: Flask) -> None:
     """Log to app.log with rotation; also log to console."""

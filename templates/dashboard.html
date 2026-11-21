@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -22,15 +22,17 @@
                 <h1 class="mb-1">Smart Dashboard</h1>
                 <p class="mb-0">View daily production performance across the farm.</p>
             </div>
-          
         </div>
     </header>
 
     <main class="container py-4">
-        <form action="/Team-Leader" method="post" class="row g-3 align-items-end bg-light border rounded p-3 mb-4">
+        <div id="errorBanner" class="alert alert-warning d-none" role="alert"></div>
+
+        <form id="filterForm" class="row g-3 align-items-end bg-light border rounded p-3 mb-4">
             <div class="col-md-4">
                 <label for="productionBlock" class="form-label">Block</label>
                 <select id="productionBlock" name="operationBlock" class="form-select" required>
+                    <option value="all" selected>All blocks</option>
                     <option value="Block1">Block 1</option>
                     <option value="Block2">Block 2</option>
                     <option value="Block3">Block 3</option>
@@ -46,6 +48,10 @@
             </div>
             <div class="col-md-auto">
                 <button type="submit" class="btn btn-success fw-bold">Apply</button>
+            </div>
+            <div class="col-md text-md-end small text-secondary">
+                <span id="liveDot" class="badge rounded-pill text-bg-secondary">Connecting…</span>
+                <span id="lastUpdated" class="ms-2"></span>
             </div>
         </form>
 
@@ -123,15 +129,13 @@
             </div>
         </section>
 
-
-                <section class="mb-5" aria-labelledby="operations-table-heading">
-            <h2 class="h3 mb-3" id="operations-table-heading">Shift Overview</h2>
+        <section class="mb-5" aria-labelledby="shift-table-heading">
+            <h2 class="h3 mb-3" id="shift-table-heading">Shift Overview</h2>
             <div class="card rounded-3 overflow-hidden shadow-sm">
                 <div class="table-responsive">
                     <table id="shiftOverviewTable" class="table table-bordered table-striped align-middle mb-0">
                         <thead class="table-success">
                             <tr>
-                                
                                 <th scope="col">Shift Start</th>
                                 <th scope="col">Shift End</th>
                                 <th scope="col">Hours Worked</th>
@@ -141,15 +145,9 @@
                                 <th scope="col">Total Crates Harvested</th>
                                 <th scope="col">Total Rejected Crates</th>
                                 <th scope="col">Number of Trees</th>
-                            
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr><td>04:30</td><td>16:30</td><td>12</td><td>John Doe</td><td>Block 1</td><td>5</td><td>100</td><td>20</td><td>5</td></tr>
-                            <tr><td>05:10</td><td>15:10</td><td>10</td><td>Jane Smith</td><td>Block 1</td><td>8</td><td>150</td><td>25</td><td>10</td></tr>
-                            <tr><td>05:55</td><td>--:--</td><td>-</td><td>Mike Johnson</td><td>Block 1</td><td>6</td><td>120</td><td>22</td><td>8</td></tr>
-                            
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -159,7 +157,7 @@
             <h2 class="h3 mb-3" id="operations-table-heading">Operations Management</h2>
             <div class="card rounded-3 overflow-hidden shadow-sm">
                 <div class="table-responsive">
-                    <table class="table table-bordered table-striped align-middle mb-0">
+                    <table id="operationsTable" class="table table-bordered table-striped align-middle mb-0">
                         <thead class="table-success">
                             <tr>
                                 <th scope="col">Time</th>
@@ -171,13 +169,7 @@
                                 <th scope="col">Rejected Crates</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr><td>04:30</td><td>John Doe</td><td>Block 1</td><td>5</td><td>100</td><td>20</td><td>5</td></tr>
-                            <tr><td>08:30</td><td>Jane Smith</td><td>Block 1</td><td>8</td><td>150</td><td>25</td><td>10</td></tr>
-                            <tr><td>10:20</td><td>Mike Johnson</td><td>Block 1</td><td>6</td><td>120</td><td>22</td><td>8</td></tr>
-                            
-                            
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -200,13 +192,7 @@
                                 <th scope="col">Number of Crates at Destination</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr><td>08:47</td><td>1</td><td>Tractor</td><td>XYZ-123</td><td>John Doe</td><td>Pack House</td><td>100</td><td>80</td></tr>
-                            <tr><td>09:00</td><td>1</td><td>Truck</td><td>ABC-456</td><td>Jane Smith</td><td>Farm Shed</td><td>150</td><td>120</td></tr>
-                            
-                            <tr><td>15:09</td><td>3</td><td>Truck</td><td>JKL-901</td><td>Chantel Davis</td><td>Pack House</td><td>100</td><td>80</td></tr>
-                        
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -216,7 +202,7 @@
             <h2 class="h3 mb-3" id="operational-notes-heading">Operational Notes</h2>
             <div class="card rounded-3 overflow-hidden shadow-sm">
                 <div class="table-responsive">
-                    <table class="table table-bordered table-striped align-middle mb-0">
+                    <table id="notesTable" class="table table-bordered table-striped align-middle mb-0">
                         <thead class="table-success">
                             <tr>
                                 <th scope="col">Total Crates at End of Shift</th>
@@ -224,13 +210,7 @@
                                 <th scope="col">Additional Notes</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <tr>
-                                <td>120</td>
-                                <td>Tractor breakdown 30 min</td>
-                                <td>Heavy Rainfall expected tomorrow</td>
-                            </tr>
-                        </tbody>
+                        <tbody></tbody>
                     </table>
                 </div>
             </div>
@@ -239,98 +219,211 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
     <script>
-        const dateInput = document.getElementById("DateHarvested");
-        const today = new Date();
-        dateInput.value = [
-            today.getFullYear(),
-            String(today.getMonth() + 1).padStart(2, "0"),
-            String(today.getDate()).padStart(2, "0")
-        ].join("-");
-
-              const farmGreen = "#005333";
+        const farmGreen = "#005333";
         const farmGold = "#f9d000";
+        const TICK_MS = 5000;
+        const SERVER_RETRY_MS = 15000;
+        const API_BASE = location.protocol === "file:" ? "http://localhost:5000" : "";
 
-        // Default data (will be replaced by API)
-        let harvestValues = [0, 0, 0, 0, 0, 0, 0];
-        let destinationValues = [0, 0, 0];
+        const pad = (n) => String(n).padStart(2, "0");
+        const toDateString = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const nowTime = () => {
+            const d = new Date();
+            return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+        const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        const pick = (list) => list[randInt(0, list.length - 1)];
 
-        function updateKpi(cardId, valueId, statusId, value, isBottleneck) {
-            const card = document.getElementById(cardId);
-            const status = document.getElementById(statusId);
-            const tone = isBottleneck ? "danger" : "success";
+        const todayString = toDateString(new Date());
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayString = toDateString(yesterday);
 
-            document.getElementById(valueId).textContent = value.toLocaleString();
-            card.classList.remove("border-success", "bg-success-subtle", "border-danger", "bg-danger-subtle");
-            card.classList.add(`border-${tone}`, `bg-${tone}-subtle`);
-            status.classList.add(`bg-${tone}`);
-            status.textContent = isBottleneck ? "Bottleneck" : "On track";
+        const demo = { teams: [], harvests: [], trips: [], notes: [], tick: 0 };
+        const vehicles = [
+            { type: "Tractor", registration: "XYZ-123" },
+            { type: "Truck", registration: "ABC-456" },
+            { type: "Truck", registration: "JKL-901" },
+            { type: "Bakkie", registration: "PMG-123" }
+        ];
+        const drivers = ["John Doe", "Jane Smith", "Chantel Davis", "Mike Johnson"];
+        const destinations = ["Pack house", "Farm shed", "Other"];
+        const delayOptions = ["", "", "Tractor breakdown 30 min", "Rain delay 20 min", "Waiting for crates"];
+
+        function addTeam(id, date, start, end, leader, block, workers) {
+            demo.teams.push({ id, date, start, end, leader, block, workers });
         }
 
-        async function loadDashboardData() {
-            try {
-                // Fetch data from API
-                const response = await fetch('/api/dashboard');
-                if (response.ok) {
-                    const data = await response.json();
-                    harvestValues = data.harvestValues;
-                    destinationValues = data.destinationValues;
-                }
-            } catch (error) {
-                console.warn("Dashboard API is unavailable. Showing the data in the tables.");
+        function addHarvest(teamId, date, time, crates, trees, rejected) {
+            demo.harvests.push({ teamId, date, time, crates, trees, rejected });
+        }
+
+        function addTrip(date, time, block, vehicle, driver, destination, loaded, delivered) {
+            const trip = demo.trips.filter((t) => t.date === date && t.block === block).length + 1;
+            demo.trips.push({
+                date, time, block, trip, vehicle: vehicle.type, registration: vehicle.registration,
+                driver, destination, loaded, delivered
+            });
+        }
+
+        function upsertNote(date, block, endCrates, delays, remarks) {
+            const existing = demo.notes.find((n) => n.date === date && n.block === block);
+            if (existing) {
+                existing.time = nowTime();
+                existing.endCrates = endCrates;
+                if (delays !== null) existing.delays = delays;
+                return;
             }
-
-            // Update the numbers
-            const cratesHarvestedToday = harvestValues[harvestValues.length - 1];
-            const totalHarvested = harvestValues.reduce((total, crates) => total + crates, 0);
-            const totalDispatched = destinationValues.reduce((total, crates) => total + crates, 0);
-            const cratesAwaitingTransport = Math.max(totalHarvested - totalDispatched, 0);
-            const cratesAtShiftEnd = Math.max(
-                [...document.querySelectorAll("#shiftOverviewTable tbody tr")]
-                    .reduce((sum, row) => sum + Number(row.cells[6].textContent), 0) -
-                [...document.querySelectorAll("#logisticsOverviewTable tbody tr")]
-                    .reduce((sum, row) => sum + Number(row.cells[6].textContent), 0),
-                0
-            );
-
-            updateKpi("harvestKpi", "harvestValue", "harvestStatus",
-                cratesHarvestedToday, cratesHarvestedToday < 100);
-            updateKpi("transportKpi", "transportValue", "transportStatus",
-                cratesAwaitingTransport, cratesAwaitingTransport > 0);
-            updateKpi("shiftEndKpi", "shiftEndValue", "shiftEndStatus",
-                cratesAtShiftEnd, cratesAtShiftEnd > 0);
+            demo.notes.push({ date, block, time: nowTime(), endCrates, delays: delays || "", remarks: remarks || "" });
         }
-        
-                // Update the charts with the new data
-        function updateCharts() {
-                    const harvestChart = Chart.getChart("harvestChart");
-                    if (!harvestChart) return;
 
-                    const harvestRows = [...document.querySelectorAll("#shiftOverviewTable tbody tr")]
-                        .filter((row) => row.cells.length > 6 && !row.cells[0].hasAttribute("colspan"));
-                    harvestChart.data.labels = harvestRows.map((row) =>
-                        `${row.cells[3].textContent.trim()} (${row.cells[0].textContent.trim()})`);
-                    harvestChart.data.datasets[0].data = harvestRows.map((row) =>
-                        Number(row.cells[6].textContent.replace(/,/g, "")) || 0);
-                    harvestChart.update();
+        function seedDemo() {
+            addTeam(1, todayString, "04:30", "12:30", "John Doe", "Block 1", 5);
+            addTeam(2, todayString, "05:10", null, "Jane Smith", "Block 1", 8);
+            addTeam(3, todayString, "05:55", null, "Mike Johnson", "Block 2", 6);
+            addTeam(4, todayString, "06:20", null, "Chantel Davis", "Block 3", 7);
+            addTeam(5, yesterdayString, "04:30", "16:30", "John Doe", "Block 1", 5);
+            addTeam(6, yesterdayString, "05:10", "15:10", "Jane Smith", "Block 2", 8);
 
-                    const destinationTotals = { "Pack house": 0, "Farm shed": 0, "Other": 0 };
-                    [...document.querySelectorAll("#logisticsOverviewTable tbody tr")]
-                        .filter((row) => row.cells.length > 7 && !row.cells[0].hasAttribute("colspan"))
-                        .forEach((row) => {
-                            const destination = row.cells[5].textContent.trim().toLowerCase();
-                            const category = destination.includes("pack") ? "Pack house" :
-                                destination.includes("farm") ? "Farm shed" : "Other";
-                            destinationTotals[category] += Number(row.cells[7].textContent.replace(/,/g, "")) || 0;
-                        });
-                    const destinationChart = Chart.getChart("destinationChart");
-                    destinationChart.data.datasets[0].data = Object.values(destinationTotals);
-                    destinationChart.update();
+            addHarvest(1, todayString, "04:30", 100, 20, 5);
+            addHarvest(2, todayString, "08:30", 150, 25, 10);
+            addHarvest(3, todayString, "10:20", 120, 22, 8);
+            addHarvest(4, todayString, "10:45", 60, 12, 3);
+            addHarvest(5, yesterdayString, "09:00", 140, 24, 6);
+            addHarvest(5, yesterdayString, "13:30", 110, 20, 4);
+            addHarvest(6, yesterdayString, "10:15", 160, 28, 9);
+
+            addTrip(todayString, "08:47", "Block 1", vehicles[0], "John Doe", "Pack house", 100, 80);
+            addTrip(todayString, "09:00", "Block 1", vehicles[1], "Jane Smith", "Farm shed", 60, 55);
+            addTrip(todayString, "11:09", "Block 2", vehicles[2], "Chantel Davis", "Pack house", 100, 92);
+            addTrip(yesterdayString, "11:00", "Block 1", vehicles[0], "John Doe", "Pack house", 250, 240);
+            addTrip(yesterdayString, "14:00", "Block 2", vehicles[1], "Jane Smith", "Farm shed", 160, 150);
+
+            demo.notes.push({ date: todayString, block: "Block 1", time: "10:00", endCrates: 90, delays: "Tractor breakdown 30 min", remarks: "Heavy rainfall expected tomorrow" });
+            demo.notes.push({ date: yesterdayString, block: "Block 1", time: "16:00", endCrates: 10, delays: "", remarks: "All crates cleared" });
+        }
+
+        function blockHarvested(date, block) {
+            const teamIds = demo.teams.filter((t) => t.date === date && t.block === block).map((t) => t.id);
+            return demo.harvests
+                .filter((h) => h.date === date && teamIds.includes(h.teamId))
+                .reduce((sum, h) => sum + h.crates, 0);
+        }
+
+        function blockLoaded(date, block) {
+            return demo.trips
+                .filter((t) => t.date === date && t.block === block)
+                .reduce((sum, t) => sum + t.loaded, 0);
+        }
+
+        function simulateActivity() {
+            demo.tick += 1;
+            const activeTeams = demo.teams.filter((t) => t.date === todayString && !t.end);
+            const pool = activeTeams.length ? activeTeams : demo.teams.filter((t) => t.date === todayString);
+            if (!pool.length) return;
+
+            const team = pick(pool);
+            addHarvest(team.id, todayString, nowTime(), randInt(8, 30), randInt(2, 8), randInt(0, 4));
+
+            if (demo.tick % 3 === 0) {
+                const block = pick([...new Set(pool.map((t) => t.block))]);
+                const available = blockHarvested(todayString, block) - blockLoaded(todayString, block);
+                if (available > 0) {
+                    const loaded = Math.min(available, randInt(40, 90));
+                    const delivered = Math.max(loaded - randInt(0, 8), 0);
+                    addTrip(todayString, nowTime(), block, pick(vehicles), pick(drivers), pick(destinations), loaded, delivered);
                 }
+                const remaining = Math.max(blockHarvested(todayString, block) - blockLoaded(todayString, block), 0);
+                upsertNote(todayString, block, remaining, pick(delayOptions), "");
+            }
+        }
 
-        // Call the functions when the page loads
-        loadDashboardData().then(updateCharts);
-        
-        new Chart(document.getElementById("harvestChart"), {
+        function hoursBetween(start, end) {
+            if (!end) return null;
+            const [sh, sm] = start.split(":").map(Number);
+            const [eh, em] = end.split(":").map(Number);
+            return Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 6) / 10;
+        }
+
+        function buildDemoData(blockValue, date) {
+            const blockName = blockValue === "all" ? null : `Block ${blockValue.replace(/\D/g, "")}`;
+            const matchesBlock = (b) => !blockName || b === blockName;
+
+            const teams = demo.teams
+                .filter((t) => t.date === date && matchesBlock(t.block))
+                .sort((a, b) => a.start.localeCompare(b.start));
+            const teamIds = teams.map((t) => t.id);
+            const harvests = demo.harvests
+                .filter((h) => h.date === date && teamIds.includes(h.teamId))
+                .sort((a, b) => a.time.localeCompare(b.time));
+            const trips = demo.trips
+                .filter((t) => t.date === date && matchesBlock(t.block))
+                .sort((a, b) => a.time.localeCompare(b.time));
+            const notes = demo.notes
+                .filter((n) => n.date === date && matchesBlock(n.block))
+                .sort((a, b) => b.time.localeCompare(a.time));
+
+            const shiftOverview = teams.map((t) => {
+                const entries = harvests.filter((h) => h.teamId === t.id);
+                return {
+                    start: t.start,
+                    end: t.end || "--:--",
+                    hours: hoursBetween(t.start, t.end),
+                    leader: t.leader,
+                    block: t.block,
+                    workers: t.workers,
+                    crates: entries.reduce((s, h) => s + h.crates, 0),
+                    rejected: entries.reduce((s, h) => s + h.rejected, 0),
+                    trees: entries.reduce((s, h) => s + h.trees, 0)
+                };
+            });
+
+            const operations = harvests.map((h) => {
+                const t = teams.find((x) => x.id === h.teamId);
+                return {
+                    time: h.time, leader: t.leader, block: t.block, workers: t.workers,
+                    crates: h.crates, trees: h.trees, rejected: h.rejected
+                };
+            });
+
+            const logistics = trips.map((t) => ({
+                time: t.time, trip: t.trip, vehicle: t.vehicle, registration: t.registration,
+                driver: t.driver, destination: t.destination, loaded: t.loaded, delivered: t.delivered
+            }));
+
+            const harvested = shiftOverview.reduce((s, r) => s + r.crates, 0);
+            const loaded = trips.reduce((s, t) => s + t.loaded, 0);
+            const awaiting = Math.max(harvested - loaded, 0);
+            const shiftEnd = notes.length ? notes[0].endCrates : awaiting;
+
+            const destinationTotals = { "Pack house": 0, "Farm shed": 0, "Other": 0 };
+            trips.forEach((t) => {
+                const key = t.destination in destinationTotals ? t.destination : "Other";
+                destinationTotals[key] += t.delivered;
+            });
+
+            return {
+                kpis: { harvestedToday: harvested, awaitingTransport: awaiting, shiftEnd: shiftEnd },
+                harvestChart: {
+                    labels: shiftOverview.map((s) => `${s.leader} (${s.start})`),
+                    values: shiftOverview.map((s) => s.crates)
+                },
+                destinationChart: {
+                    labels: Object.keys(destinationTotals),
+                    values: Object.values(destinationTotals)
+                },
+                shiftOverview,
+                operations,
+                logistics,
+                notes: notes.map((n) => ({ endCrates: n.endCrates, delays: n.delays, remarks: n.remarks }))
+            };
+        }
+
+        const dateInput = document.getElementById("DateHarvested");
+        const blockSelect = document.getElementById("productionBlock");
+        dateInput.value = todayString;
+
+        const harvestChart = new Chart(document.getElementById("harvestChart"), {
             type: "bar",
             data: {
                 labels: [],
@@ -348,11 +441,7 @@
                 indexAxis: "y",
                 plugins: {
                     legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: (context) => `${context.parsed.x} crates`
-                        }
-                    }
+                    tooltip: { callbacks: { label: (c) => `${c.parsed.x} crates` } }
                 },
                 scales: {
                     x: {
@@ -360,14 +449,12 @@
                         title: { display: true, text: "Crates" },
                         grid: { color: "rgba(0, 83, 51, 0.08)" }
                     },
-                    y: {
-                        grid: { display: false }
-                    }
+                    y: { grid: { display: false } }
                 }
             }
         });
 
-        new Chart(document.getElementById("destinationChart"), {
+        const destinationChart = new Chart(document.getElementById("destinationChart"), {
             type: "doughnut",
             data: {
                 labels: ["Pack house", "Farm shed", "Other"],
@@ -390,11 +477,10 @@
                     },
                     tooltip: {
                         callbacks: {
-                            label: (context) => {
-                                const values = context.dataset.data;
-                                const total = values.reduce((sum, value) => sum + value, 0);
-                                const percentage = (context.parsed / total * 100).toFixed(1);
-                                return `${context.label}: ${context.parsed} crates (${percentage}%)`;
+                            label: (c) => {
+                                const total = c.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = total ? (c.parsed / total * 100).toFixed(1) : "0.0";
+                                return `${c.label}: ${c.parsed} crates (${pct}%)`;
                             }
                         }
                     }
@@ -402,10 +488,133 @@
             }
         });
 
-        const tableObserver = new MutationObserver(updateCharts);
-        document.querySelectorAll("#shiftOverviewTable tbody, #logisticsOverviewTable tbody")
-            .forEach((body) => tableObserver.observe(body, { childList: true, subtree: true, characterData: true }));
-        updateCharts();
+        function updateKpi(cardId, valueId, statusId, value, isBottleneck) {
+            const card = document.getElementById(cardId);
+            const status = document.getElementById(statusId);
+            const tone = isBottleneck ? "danger" : "success";
+            document.getElementById(valueId).textContent = Number(value).toLocaleString();
+            card.classList.remove("border-success", "bg-success-subtle", "border-danger", "bg-danger-subtle");
+            card.classList.add(`border-${tone}`, `bg-${tone}-subtle`);
+            status.classList.remove("bg-success", "bg-danger");
+            status.classList.add(`bg-${tone}`);
+            status.textContent = isBottleneck ? "Bottleneck" : "On track";
+        }
+
+        function fillTable(tableId, rows, columns, emptyText) {
+            const body = document.querySelector(`#${tableId} tbody`);
+            body.replaceChildren();
+            if (!rows.length) {
+                const tr = body.insertRow();
+                const td = tr.insertCell();
+                td.colSpan = columns.length;
+                td.className = "text-center text-secondary py-3";
+                td.textContent = emptyText;
+                return;
+            }
+            rows.forEach((row) => {
+                const tr = body.insertRow();
+                columns.forEach((col) => {
+                    const v = typeof col === "function" ? col(row) : row[col];
+                    tr.insertCell().textContent = (v === null || v === undefined || v === "") ? "-" : v;
+                });
+            });
+        }
+
+        function render(data) {
+            const k = data.kpis;
+            updateKpi("harvestKpi", "harvestValue", "harvestStatus", k.harvestedToday, k.harvestedToday < 100);
+            updateKpi("transportKpi", "transportValue", "transportStatus", k.awaitingTransport, k.awaitingTransport > 0);
+            updateKpi("shiftEndKpi", "shiftEndValue", "shiftEndStatus", k.shiftEnd, k.shiftEnd > 0);
+
+            harvestChart.data.labels = data.harvestChart.labels;
+            harvestChart.data.datasets[0].data = data.harvestChart.values;
+            harvestChart.update();
+
+            destinationChart.data.labels = data.destinationChart.labels;
+            destinationChart.data.datasets[0].data = data.destinationChart.values;
+            destinationChart.update();
+
+            fillTable("shiftOverviewTable", data.shiftOverview,
+                ["start", "end", (r) => r.hours ?? "-", "leader", "block", "workers", "crates", "rejected", "trees"],
+                "No shifts recorded for this selection.");
+            fillTable("operationsTable", data.operations,
+                ["time", "leader", "block", "workers", "crates", "trees", "rejected"],
+                "No harvest entries for this selection.");
+            fillTable("logisticsOverviewTable", data.logistics,
+                ["time", "trip", "vehicle", "registration", "driver", "destination", "loaded", "delivered"],
+                "No trips recorded for this selection.");
+            fillTable("notesTable", data.notes,
+                ["endCrates", "delays", "remarks"],
+                "No operational notes for this selection.");
+        }
+
+        const errorBanner = document.getElementById("errorBanner");
+        const liveDot = document.getElementById("liveDot");
+        const lastUpdated = document.getElementById("lastUpdated");
+        let inFlight = false;
+        let serverIsLive = false;
+        let lastServerTry = 0;
+
+        function showLive() {
+            errorBanner.classList.add("d-none");
+            liveDot.className = "badge rounded-pill text-bg-success";
+            liveDot.textContent = "Live";
+            lastUpdated.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+        }
+
+        function showDemo() {
+            errorBanner.textContent = "The server is not reachable, so simulated sample data is being shown and updates every few seconds. The dashboard switches to live data automatically once the server is running.";
+            errorBanner.classList.remove("d-none");
+            liveDot.className = "badge rounded-pill text-bg-warning";
+            liveDot.textContent = "Sample data";
+            lastUpdated.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+        }
+
+        async function fetchFromServer() {
+            const params = new URLSearchParams({ block: blockSelect.value, date: dateInput.value });
+            const response = await fetch(`${API_BASE}/api/dashboard?${params}`, { cache: "no-store" });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || `Server returned ${response.status}`);
+            return data;
+        }
+
+        async function loadDashboardData(force) {
+            if (inFlight) return;
+            inFlight = true;
+            try {
+                const due = Date.now() - lastServerTry >= SERVER_RETRY_MS;
+                if (serverIsLive || due || force) {
+                    lastServerTry = Date.now();
+                    try {
+                        const data = await fetchFromServer();
+                        serverIsLive = true;
+                        render(data);
+                        showLive();
+                        return;
+                    } catch (error) {
+                        serverIsLive = false;
+                    }
+                }
+                simulateActivity();
+                render(buildDemoData(blockSelect.value, dateInput.value));
+                showDemo();
+            } finally {
+                inFlight = false;
+            }
+        }
+
+        document.getElementById("filterForm").addEventListener("submit", (e) => {
+            e.preventDefault();
+            loadDashboardData(true);
+        });
+        blockSelect.addEventListener("change", () => loadDashboardData(true));
+        dateInput.addEventListener("change", () => loadDashboardData(true));
+
+        setInterval(() => { if (!document.hidden) loadDashboardData(false); }, TICK_MS);
+        document.addEventListener("visibilitychange", () => { if (!document.hidden) loadDashboardData(true); });
+
+        seedDemo();
+        loadDashboardData(true);
     </script>
 </body>
 </html>

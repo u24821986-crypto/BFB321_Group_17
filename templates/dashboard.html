@@ -223,8 +223,6 @@
         const farmGold = "#f9d000";
         const TICK_MS = 5000;
         const SERVER_RETRY_MS = 15000;
-        const SAMPLE_INTERVAL_MS = 10 * 60 * 1000; // new sample data every 10 minutes
-        let lastSampleAt = Date.now();
         const API_BASE = location.protocol === "file:" ? "http://localhost:5000" : "";
 
         const pad = (n) => String(n).padStart(2, "0");
@@ -319,9 +317,6 @@
         }
 
         function simulateActivity() {
-            // Only generate new sample data once every 10 minutes
-            if (Date.now() - lastSampleAt < SAMPLE_INTERVAL_MS) return;
-            lastSampleAt = Date.now();
             demo.tick += 1;
             const activeTeams = demo.teams.filter((t) => t.date === todayString && !t.end);
             const pool = activeTeams.length ? activeTeams : demo.teams.filter((t) => t.date === todayString);
@@ -426,35 +421,130 @@
 
         const dateInput = document.getElementById("DateHarvested");
         const blockSelect = document.getElementById("productionBlock");
-        const errorBanner = document.getElementById("errorBanner");
-        const liveDot = document.getElementById("liveDot");
-        const lastUpdated = document.getElementById("lastUpdated");
-
-        dateInput.value = new Date().toISOString().slice(0, 10);
         dateInput.value = todayString;
 
         const harvestChart = new Chart(document.getElementById("harvestChart"), {
             type: "bar",
-@@ -238,8 +435,8 @@
+            data: {
+                labels: [],
                 datasets: [{
                     label: "Crates harvested",
                     data: [],
-                    backgroundColor: farmGreen,
                     borderColor: farmGreen,
                     backgroundColor: farmGreen,
                     borderWidth: 1
                 }]
             },
-@@ -343,7 +540,7 @@
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: "y",
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: (c) => `${c.parsed.x} crates` } }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        title: { display: true, text: "Crates" },
+                        grid: { color: "rgba(0, 83, 51, 0.08)" }
+                    },
+                    y: { grid: { display: false } }
+                }
+            }
+        });
+
+        const destinationChart = new Chart(document.getElementById("destinationChart"), {
+            type: "doughnut",
+            data: {
+                labels: ["Pack house", "Farm shed", "Other"],
+                datasets: [{
+                    data: [0, 0, 0],
+                    backgroundColor: [farmGreen, farmGold, "#83b899"],
+                    borderColor: "#ffffff",
+                    borderWidth: 3,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "62%",
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                        labels: { usePointStyle: true, padding: 20 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (c) => {
+                                const total = c.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = total ? (c.parsed / total * 100).toFixed(1) : "0.0";
+                                return `${c.label}: ${c.parsed} crates (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        function updateKpi(cardId, valueId, statusId, value, isBottleneck) {
+            const card = document.getElementById(cardId);
+            const status = document.getElementById(statusId);
+            const tone = isBottleneck ? "danger" : "success";
+            document.getElementById(valueId).textContent = Number(value).toLocaleString();
+            card.classList.remove("border-success", "bg-success-subtle", "border-danger", "bg-danger-subtle");
+            card.classList.add(`border-${tone}`, `bg-${tone}-subtle`);
+            status.classList.remove("bg-success", "bg-danger");
+            status.classList.add(`bg-${tone}`);
+            status.textContent = isBottleneck ? "Bottleneck" : "On track";
+        }
+
+        function fillTable(tableId, rows, columns, emptyText) {
+            const body = document.querySelector(`#${tableId} tbody`);
+            body.replaceChildren();
+            if (!rows.length) {
+                const tr = body.insertRow();
+                const td = tr.insertCell();
+                td.colSpan = columns.length;
+                td.className = "text-center text-secondary py-3";
+                td.textContent = emptyText;
+                return;
+            }
+            rows.forEach((row) => {
+                const tr = body.insertRow();
+                columns.forEach((col) => {
+                    const v = typeof col === "function" ? col(row) : row[col];
+                    tr.insertCell().textContent = (v === null || v === undefined || v === "") ? "-" : v;
+                });
+            });
+        }
+
+        function render(data) {
+            const k = data.kpis;
+            updateKpi("harvestKpi", "harvestValue", "harvestStatus", k.harvestedToday, k.harvestedToday < 100);
+            updateKpi("transportKpi", "transportValue", "transportStatus", k.awaitingTransport, k.awaitingTransport > 0);
+            updateKpi("shiftEndKpi", "shiftEndValue", "shiftEndStatus", k.shiftEnd, k.shiftEnd > 0);
+
+            harvestChart.data.labels = data.harvestChart.labels;
+            harvestChart.data.datasets[0].data = data.harvestChart.values;
+            harvestChart.update();
+
+            destinationChart.data.labels = data.destinationChart.labels;
+            destinationChart.data.datasets[0].data = data.destinationChart.values;
             destinationChart.update();
 
             fillTable("shiftOverviewTable", data.shiftOverview,
-                ["start", "end", "hours", "leader", "block", "workers", "crates", "rejected", "trees"],
                 ["start", "end", (r) => r.hours ?? "-", "leader", "block", "workers", "crates", "rejected", "trees"],
                 "No shifts recorded for this selection.");
             fillTable("operationsTable", data.operations,
                 ["time", "leader", "block", "workers", "crates", "trees", "rejected"],
-@@ -356,52 +553,73 @@
+                "No harvest entries for this selection.");
+            fillTable("logisticsOverviewTable", data.logistics,
+                ["time", "trip", "vehicle", "registration", "driver", "destination", "loaded", "delivered"],
+                "No trips recorded for this selection.");
+            fillTable("notesTable", data.notes,
+                ["endCrates", "delays", "remarks"],
                 "No operational notes for this selection.");
         }
 
@@ -472,20 +562,14 @@
             lastUpdated.textContent = `Updated ${new Date().toLocaleTimeString()}`;
         }
 
-        function showError(msg) {
-            errorBanner.textContent = msg;
         function showDemo() {
-            errorBanner.textContent = "The server is not reachable, so simulated sample data is being shown and refreshes every 10 minutes. The dashboard switches to live data automatically once the server is running.";
+            errorBanner.textContent = "The server is not reachable, so simulated sample data is being shown and updates every few seconds. The dashboard switches to live data automatically once the server is running.";
             errorBanner.classList.remove("d-none");
-            liveDot.className = "badge rounded-pill text-bg-danger";
-            liveDot.textContent = "Offline";
-            lastUpdated.textContent = "";
             liveDot.className = "badge rounded-pill text-bg-warning";
             liveDot.textContent = "Sample data";
             lastUpdated.textContent = `Updated ${new Date().toLocaleTimeString()}`;
         }
 
-        let inFlight = false;
         async function fetchFromServer() {
             const params = new URLSearchParams({ block: blockSelect.value, date: dateInput.value });
             const response = await fetch(`${API_BASE}/api/dashboard?${params}`, { cache: "no-store" });
@@ -494,23 +578,10 @@
             return data;
         }
 
-        async function loadDashboardData() {
         async function loadDashboardData(force) {
             if (inFlight) return;
             inFlight = true;
             try {
-                const params = new URLSearchParams({
-                    block: blockSelect.value,
-                    date: dateInput.value
-                });
-                const response = await fetch(`${API_BASE}/api/dashboard?${params}`, { cache: "no-store" });
-                if (!response.ok) throw new Error(`Server returned ${response.status}`);
-                const data = await response.json();
-                render(data);
-                showLive();
-            } catch (err) {
-                showError("Could not load dashboard data. Make sure the Flask server is running.");
-                console.error(err);
                 const due = Date.now() - lastServerTry >= SERVER_RETRY_MS;
                 if (serverIsLive || due || force) {
                     lastServerTry = Date.now();
@@ -534,20 +605,17 @@
 
         document.getElementById("filterForm").addEventListener("submit", (e) => {
             e.preventDefault();
-            loadDashboardData();
             loadDashboardData(true);
         });
-        blockSelect.addEventListener("change", loadDashboardData);
-        dateInput.addEventListener("change", loadDashboardData);
         blockSelect.addEventListener("change", () => loadDashboardData(true));
         dateInput.addEventListener("change", () => loadDashboardData(true));
 
         setInterval(() => { if (!document.hidden) loadDashboardData(false); }, TICK_MS);
         document.addEventListener("visibilitychange", () => { if (!document.hidden) loadDashboardData(true); });
 
-        loadDashboardData();
         seedDemo();
         loadDashboardData(true);
     </script>
 </body>
 </html>
+

@@ -35,7 +35,7 @@
                             <form action="/Team-Leader" method="post">
                                 <div class="mb-3">
                                     <label for="production" class="form-label">Shift period</label>
-                                    <select id="production" name="shiftPeriod" class="form-select" required>
+                                    <select id="production" name="operationBlock" class="form-select" required>
                                         <option value="Clockin">Clock In</option>
                                         <option value="Clockout">Clock Out</option>
                                     </select>
@@ -124,18 +124,6 @@
                     <form action="/Logistics" method="post">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label for="logisticsBlock" class="form-label">Block</label>
-                                <select id="logisticsBlock" name="operationBlock" class="form-select" required>
-                                    <option value="Block1">Block 1</option>
-                                    <option value="Block2">Block 2</option>
-                                    <option value="Block3">Block 3</option>
-                                    <option value="Block4">Block 4</option>
-                                    <option value="Block5">Block 5</option>
-                                    <option value="Block6">Block 6</option>
-                                    <option value="Block7">Block 7</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
                                 <label for="tripNumber" class="form-label">Trip Number<span class="small text-secondary">(required)</span></label>
                                 <input type="number" id="tripNumber" name="tripNumber" class="form-control" min="0" required>
                             </div>
@@ -195,18 +183,6 @@
             <article class="card border-top border-4 border-warning shadow-sm">
                 <div class="card-body">
                     <form action="/Summary" method="post">
-                        <div class="mb-3">
-                            <label for="notesBlock" class="form-label">Block</label>
-                            <select id="notesBlock" name="operationBlock" class="form-select" required>
-                                <option value="Block1">Block 1</option>
-                                <option value="Block2">Block 2</option>
-                                <option value="Block3">Block 3</option>
-                                <option value="Block4">Block 4</option>
-                                <option value="Block5">Block 5</option>
-                                <option value="Block6">Block 6</option>
-                                <option value="Block7">Block 7</option>
-                            </select>
-                        </div>
                         <div class="mb-3">
                             <label for="endShiftCrates" class="form-label">End shift Crates <span class="small text-secondary">(required)</span></label>
                             <input type="number" id="endShiftCrates" name="endShiftCrates" class="form-control" min="0">
@@ -280,7 +256,7 @@
                     document.querySelectorAll('input[type="date"]').forEach((i) => i.value = todayString);
                     document.querySelectorAll('input[type="time"]').forEach((i) => i.value = currentTime);
                 } else {
-                    alert("Error: " + (result.message || `The server sent an error (HTTP ${response.status}). Check the Render logs.`));
+                    alert("Error: " + (result.message || "The server rejected the data."));
                 }
             } catch (error) {
                 console.error("API Connection Error:", error);

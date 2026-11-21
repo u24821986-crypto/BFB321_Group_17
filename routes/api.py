@@ -1,312 +1,355 @@
 import os
-from datetime import date as date_cls, timedelta
-from urllib.parse import unquote, urlparse
+import sqlite3
+from datetime import datetime
 
 from flask import Blueprint, jsonify, request
-import pymysql
 
-# Create a blueprint for the API
 api_bp = Blueprint('api', __name__)
 
-
-def get_db_connection():
-    """Use DATABASE_URL (set in Render) when present, otherwise your local MySQL."""
-    url = os.getenv("DATABASE_URL")
-    if url:
-        u = urlparse(url)
-        settings = dict(host=u.hostname, port=u.port or 3306, user=unquote(u.username or ""),
-                        password=unquote(u.password or ""), database=u.path.lstrip("/"))
-    else:
-        settings = dict(host="localhost", user="root", password="", database="mydb")
-    if os.getenv("DB_SSL") == "true":  # needed by some hosted MySQL providers
-        settings["ssl"] = {"fake_flag_to_enable_tls": True}
-    return pymysql.connect(cursorclass=pymysql.cursors.DictCursor, **settings)
+# Database file lives next to your app. Override with SQLITE_PATH if you like.
+DB_PATH = os.getenv(
+    "SQLITE_PATH",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "smartharvest.db"),
+)
 
 
-# ---------- small helpers ----------
-def fail(message, code=400):
-    return jsonify({"error": message, "message": message}), code
+def get_db():
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
-def clean_block(value):
-    """'Block1' or 'Block 1' -> 'Block 1' (the database value)."""
-    return "Block " + "".join(c for c in (value or "") if c.isdigit())
+try:
+    from zoneinfo import ZoneInfo
+    _TZ = ZoneInfo("Africa/Johannesburg")
+except Exception:  # tz database missing: fall back to UTC+2
+    from datetime import timezone, timedelta
+    _TZ = timezone(timedelta(hours=2))
 
 
-def clean_destination(value):
-    return {"PackHouse": "Pack house", "FarmShed": "Farm shed"}.get(value, value or "Other")
+def _now():
+    return datetime.now(_TZ)
 
 
-def hhmm(t):
-    if t is None:
-        return None
-    secs = int(t.total_seconds()) if isinstance(t, timedelta) else t.hour * 3600 + t.minute * 60
-    return f"{secs // 3600:02d}:{secs % 3600 // 60:02d}"
+def today():
+    return _now().strftime("%Y-%m-%d")
+
+
+def now_time():
+    return _now().strftime("%H:%M")
+
+
+def when(data):
+    """Date/time from the form, or South African 'now' if left empty."""
+    day = data.get("DateHarvested") or today()
+    time = data.get("TimeHarvested") or data.get("time") or now_time()
+    return day, str(time)[:5]
+
+
+def init_db():
+    conn = get_db()
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS teams (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT, clock_in TEXT, clock_out TEXT,
+            leader TEXT, block TEXT, workers INTEGER);
+        CREATE TABLE IF NOT EXISTS harvests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            team_id INTEGER, date TEXT, time TEXT,
+            crates INTEGER, trees INTEGER, rejected INTEGER);
+        CREATE TABLE IF NOT EXISTS logistics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT, time TEXT, trip INTEGER, vehicle TEXT,
+            registration TEXT, driver TEXT, destination TEXT, block TEXT,
+            loaded INTEGER, delivered INTEGER);
+        CREATE TABLE IF NOT EXISTS notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT, time TEXT, block TEXT,
+            end_crates INTEGER, delays TEXT, remarks TEXT);
+    """)
+    if conn.execute("SELECT COUNT(*) FROM teams").fetchone()[0] == 0:
+        d = today()
+        conn.executemany(
+            "INSERT INTO teams (date, clock_in, clock_out, leader, block, workers) VALUES (?,?,?,?,?,?)",
+            [(d, "06:00", "14:00", "Thabo M.", "Block 1", 12),
+             (d, "07:00", "15:00", "Lerato K.", "Block 2", 10)])
+        conn.executemany(
+            "INSERT INTO harvests (team_id, date, time, crates, trees, rejected) VALUES (?,?,?,?,?,?)",
+            [(1, d, "08:30", 120, 60, 5), (1, d, "10:30", 140, 70, 8),
+             (2, d, "09:30", 110, 55, 4), (2, d, "11:30", 130, 65, 6)])
+        conn.execute(
+            "INSERT INTO logistics (date, time, trip, vehicle, registration, driver, destination, block, loaded, delivered)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (d, "11:00", 1, "Truck", "ABC 123 GP", "Sipho N.", "Pack house", "Block 1", 200, 198))
+        conn.execute(
+            "INSERT INTO notes (date, time, block, end_crates, delays, remarks) VALUES (?,?,?,?,?,?)",
+            (d, "12:00", "Block 1", 40, "None", "Sample data - replace by submitting the forms"))
+        conn.commit()
+    conn.close()
+
+
+init_db()
 
 
 def hours_between(start, end):
-    if not start or not end:
-        return None
-    (sh, sm), (eh, em) = [map(int, x.split(":")) for x in (start, end)]
-    return round(((eh * 60 + em) - (sh * 60 + sm)) / 60, 1)
-
-
-def get_date_time_id(cursor, day, time):
-    cursor.execute("SELECT date_time_id FROM date_time WHERE `date`=%s AND `time`=%s", (day, time))
-    row = cursor.fetchone()
-    if row:
-        return row["date_time_id"]
-    cursor.execute("INSERT INTO date_time (`date`, `time`) VALUES (%s, %s)", (day, time))
-    return cursor.lastrowid
-
-
-def get_person_id(cursor, name):
-    name = name.strip()
-    cursor.execute("SELECT person_id FROM person WHERE name=%s LIMIT 1", (name,))
-    row = cursor.fetchone()
-    if row:
-        return row["person_id"]
-    cursor.execute("INSERT INTO person (name) VALUES (%s)", (name,))
-    return cursor.lastrowid
-
-
-def save(handler):
-    """Open a connection, run handler(cursor, data, day, time), commit, and return JSON."""
-    data = request.get_json() or {}
-    day = data.get("DateHarvested")
-    time = data.get("TimeHarvested") or data.get("time")
-    if not day or not time:
-        return fail("Date and time are required")
-    connection = get_db_connection()
     try:
-        with connection.cursor() as cursor:
-            error = handler(cursor, data, day, time)
-            if error:
-                connection.rollback()
-                return fail(error)
-        connection.commit()
-        return jsonify({"status": "success", "message": "Saved. It will now show on the dashboard."}), 201
-    except Exception as e:
-        connection.rollback()
-        return fail(str(e), 500)
-    finally:
-        connection.close()
+        s = datetime.strptime(start, "%H:%M")
+        e = datetime.strptime(end, "%H:%M")
+        return round((e - s).seconds / 3600, 1)
+    except Exception:
+        return None
 
 
-# --- DASHBOARD ENDPOINT (GET) ---
+def to_int(value, default=0):
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def pick(data, *keys, default=None):
+    for k in keys:
+        if data.get(k) not in (None, ""):
+            return data[k]
+    return default
+
+
+def norm_block(value):
+    """'Block1' -> 'Block 1'"""
+    if not value:
+        return None
+    digits = ''.join(ch for ch in str(value) if ch.isdigit())
+    return f"Block {digits}" if digits else str(value)
+
+
+# --- DASHBOARD (GET) ---
 @api_bp.route('/dashboard', methods=['GET'])
 def get_dashboard_data():
-    day = request.args.get("date") or date_cls.today().isoformat()
-    block = request.args.get("block", "all")
-    extra = "" if block == "all" else " AND {t}.block=%s"
-    params = (day,) if block == "all" else (day, clean_block(block))
+    block_param = request.args.get('block', 'all')
+    date_param = request.args.get('date') or today()
+    block_name = None if block_param in (None, '', 'all') else norm_block(block_param)
 
-    connection = get_db_connection()
+    conn = None
     try:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT t.team_id, t.clock_in_time, t.clock_out_time, p.name AS leader, t.block, t.num_workers "
-                "FROM team t JOIN person p ON p.person_id=t.team_leader_id "
-                "JOIN date_time d ON d.date_time_id=t.date_time_id "
-                "WHERE d.`date`=%s" + extra.format(t="t") + " ORDER BY t.clock_in_time", params)
-            teams = cursor.fetchall()
+        conn = get_db()
+        bf = " AND t.block = ?" if block_name else ""
+        bp = [block_name] if block_name else []
 
-            harvests = []
-            if teams:
-                ids = [t["team_id"] for t in teams]
-                cursor.execute(
-                    "SELECT h.team_id, h.total_crates_number AS crates, h.tree_number AS trees, "
-                    "h.rejected_crates_number AS rejected, d.`time` FROM harvest_crates h "
-                    "JOIN date_time d ON d.date_time_id=h.date_time_id "
-                    "WHERE h.team_id IN (" + ",".join(["%s"] * len(ids)) + ") ORDER BY d.`time`", ids)
-                harvests = cursor.fetchall()
+        rows = conn.execute(f"""
+            SELECT t.id, t.clock_in, t.clock_out, t.leader, t.block, t.workers,
+                   COALESCE(SUM(h.crates),0) crates, COALESCE(SUM(h.rejected),0) rejected,
+                   COALESCE(SUM(h.trees),0) trees
+            FROM teams t LEFT JOIN harvests h ON h.team_id = t.id
+            WHERE t.date = ? {bf}
+            GROUP BY t.id ORDER BY t.clock_in""", [date_param] + bp).fetchall()
+        shift_overview = [{
+            "start": r["clock_in"], "end": r["clock_out"] or "--:--",
+            "hours": hours_between(r["clock_in"], r["clock_out"]),
+            "leader": r["leader"], "block": r["block"], "workers": r["workers"],
+            "crates": r["crates"], "rejected": r["rejected"], "trees": r["trees"],
+        } for r in rows]
 
-            cursor.execute(
-                "SELECT l.trip_number AS trip, l.vehicle_type AS vehicle, l.vehicle_registration AS registration, "
-                "p.name AS driver, l.destination, l.number_crates_loaded AS loaded, "
-                "l.number_crates_at_destination AS delivered, d.`time` FROM logistics l "
-                "JOIN person p ON p.person_id=l.driver_id JOIN date_time d ON d.date_time_id=l.date_time_id "
-                "WHERE d.`date`=%s" + extra.format(t="l") + " ORDER BY d.`time`", params)
-            trips = cursor.fetchall()
+        rows = conn.execute(f"""
+            SELECT h.time, t.leader, t.block, t.workers, h.crates, h.trees, h.rejected
+            FROM harvests h JOIN teams t ON t.id = h.team_id
+            WHERE h.date = ? {bf} ORDER BY h.time""", [date_param] + bp).fetchall()
+        operations = [dict(r) for r in rows]
 
-            cursor.execute(
-                "SELECT o.number_end_shift_crates AS endCrates, o.delays, o.remarks, o.block FROM operations o "
-                "JOIN date_time d ON d.date_time_id=o.date_time_id "
-                "WHERE d.`date`=%s" + extra.format(t="o") + " ORDER BY d.`time` DESC, o.operations_id DESC", params)
-            notes = cursor.fetchall()
+        bf2 = " AND block = ?" if block_name else ""
+        rows = conn.execute(
+            f"SELECT * FROM logistics WHERE date = ? {bf2} ORDER BY time", [date_param] + bp).fetchall()
+        logistics = [{
+            "time": r["time"], "trip": r["trip"], "vehicle": r["vehicle"],
+            "registration": r["registration"], "driver": r["driver"],
+            "destination": r["destination"], "loaded": r["loaded"], "delivered": r["delivered"],
+        } for r in rows]
+
+        rows = conn.execute(
+            f"SELECT * FROM notes WHERE date = ? {bf2} ORDER BY time DESC, id DESC",
+            [date_param] + bp).fetchall()
+        notes = [{"endCrates": r["end_crates"], "delays": r["delays"], "remarks": r["remarks"]}
+                 for r in rows]
+
+        harvested = sum(r["crates"] for r in shift_overview)
+        loaded = sum(r["loaded"] or 0 for r in logistics)
+        awaiting = max(harvested - loaded, 0)
+        shift_end = notes[0]["endCrates"] if notes else awaiting
+
+        totals = {"Pack house": 0, "Farm shed": 0, "Other": 0}
+        for r in logistics:
+            key = r["destination"] if r["destination"] in totals else "Other"
+            totals[key] += r["delivered"] or 0
+
+        return jsonify({
+            "kpis": {"harvestedToday": harvested, "awaitingTransport": awaiting, "shiftEnd": shift_end},
+            "harvestChart": {
+                "labels": [f"{r['leader']} ({r['start']})" for r in shift_overview],
+                "values": [r["crates"] for r in shift_overview],
+            },
+            "destinationChart": {"labels": list(totals.keys()), "values": list(totals.values())},
+            "shiftOverview": shift_overview, "operations": operations,
+            "logistics": logistics, "notes": notes,
+        }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        connection.close()
-
-    by_team = {t["team_id"]: t for t in teams}
-    shifts = []
-    for t in teams:
-        mine = [h for h in harvests if h["team_id"] == t["team_id"]]
-        start, end = hhmm(t["clock_in_time"]), hhmm(t["clock_out_time"])
-        shifts.append({
-            "start": start, "end": end or "--:--", "hours": hours_between(start, end),
-            "leader": t["leader"], "block": t["block"], "workers": t["num_workers"],
-            "crates": sum(h["crates"] for h in mine), "rejected": sum(h["rejected"] for h in mine),
-            "trees": sum(h["trees"] or 0 for h in mine)})
-
-    operations = [{
-        "time": hhmm(h["time"]), "leader": by_team[h["team_id"]]["leader"],
-        "block": by_team[h["team_id"]]["block"], "workers": by_team[h["team_id"]]["num_workers"],
-        "crates": h["crates"], "trees": h["trees"], "rejected": h["rejected"]} for h in harvests]
-
-    totals = {"Pack house": 0, "Farm shed": 0, "Other": 0}
-    for t in trips:
-        t["destination"] = t["destination"] if t["destination"] in totals else "Other"
-        totals[t["destination"]] += t["delivered"]
-        t["time"] = hhmm(t["time"])
-
-    harvested = sum(s["crates"] for s in shifts)
-    awaiting = max(harvested - sum(t["loaded"] for t in trips), 0)
-    latest = {}
-    for n in notes:  # newest first: keep the latest note per block
-        latest.setdefault(n["block"], n["endCrates"])
-    shift_end = sum(latest.values()) if latest else awaiting
-
-    return jsonify({
-        "kpis": {"harvestedToday": harvested, "awaitingTransport": awaiting, "shiftEnd": shift_end},
-        "harvestChart": {"labels": [f"{s['leader']} ({s['start']})" for s in shifts],
-                         "values": [s["crates"] for s in shifts]},
-        "destinationChart": {"labels": list(totals), "values": list(totals.values())},
-        "shiftOverview": shifts,
-        "operations": operations,
-        "logistics": trips,
-        "notes": [{"endCrates": n["endCrates"], "delays": n["delays"], "remarks": n["remarks"]} for n in notes],
-    }), 200
+        if conn:
+            conn.close()
 
 
-# --- TEAM ENDPOINT (POST): Clock In adds a team, Clock Out closes it ---
+# --- TEAM (POST): Clock In adds a team, Clock Out closes it ---
 @api_bp.route('/team', methods=['POST'])
 def save_team_info():
-    def handler(cursor, d, day, time):
-        if not d.get("teamInfo"):
-            return "Missing team leader name"
-        block = clean_block(d.get("operationBlock"))
-        if d.get("shiftPeriod") == "Clockout":
-            cursor.execute(
-                "UPDATE team t JOIN person p ON p.person_id=t.team_leader_id "
-                "JOIN date_time x ON x.date_time_id=t.date_time_id "
-                "SET t.clock_out_time=%s WHERE p.name=%s AND t.block=%s AND x.`date`=%s "
-                "AND t.clock_out_time IS NULL", (time, d["teamInfo"].strip(), block, day))
-            if cursor.rowcount == 0:
-                return "No clocked-in team found for that leader, block and date"
-            return None
-        cursor.execute(
-            "INSERT INTO team (clock_in_time, num_workers, block, date_time_id, team_leader_id) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            (time, d.get("NumOfWorkers") or 0, block,
-             get_date_time_id(cursor, day, time), get_person_id(cursor, d["teamInfo"])))
-    return save(handler)
+    data = request.get_json(silent=True)
+    if not data or not str(data.get('teamInfo', '')).strip():
+        return jsonify({"error": "Missing team leader name", "message": "Missing team leader name"}), 400
+    leader = data['teamInfo'].strip()
+    day, time = when(data)
+    block = norm_block(data.get('operationBlock')) or "Block 1"
+    conn = None
+    try:
+        conn = get_db()
+        if data.get('shiftPeriod') == "Clockout":
+            cur = conn.execute(
+                "UPDATE teams SET clock_out = ? WHERE leader = ? AND block = ? AND date = ? AND clock_out IS NULL",
+                (time, leader, block, day))
+            conn.commit()
+            if cur.rowcount == 0:
+                msg = "No clocked-in team found for that leader, block and date"
+                return jsonify({"error": msg, "message": msg}), 400
+            return jsonify({"status": "success", "message": "Clocked out"}), 201
+        conn.execute(
+            "INSERT INTO teams (date, clock_in, leader, block, workers) VALUES (?,?,?,?,?)",
+            (day, time, leader, block, to_int(data.get('NumOfWorkers'))))
+        conn.commit()
+        return jsonify({"status": "success", "message": "Team clocked in"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e), "message": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 
-# --- HARVEST ENDPOINT (POST): the team leader's name is matched to today's team ---
+# --- HARVEST (POST) ---
 @api_bp.route('/harvest', methods=['POST'])
 def save_harvest():
-    def handler(cursor, d, day, time):
-        if not d.get("CratesHarvested") or not d.get("Team"):
-            return "Missing team leader or crates harvested"
-        cursor.execute(
-            "SELECT t.team_id FROM team t JOIN person p ON p.person_id=t.team_leader_id "
-            "JOIN date_time x ON x.date_time_id=t.date_time_id "
-            "WHERE p.name=%s AND x.`date`=%s ORDER BY t.team_id DESC LIMIT 1",
-            (d["Team"].strip(), day))
-        team = cursor.fetchone()
-        if not team:
-            return "No team found for that leader on this date. Clock the team in first."
-        cursor.execute(
-            "INSERT INTO harvest_crates (total_crates_number, tree_number, rejected_crates_number, team_id, date_time_id) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            (d["CratesHarvested"], d.get("NumOfTrees") or 0, d.get("RejectedCrates") or 0,
-             team["team_id"], get_date_time_id(cursor, day, time)))
-    return save(handler)
+    data = request.get_json(silent=True)
+    if not data or data.get('CratesHarvested') in (None, ""):
+        return jsonify({"error": "Missing crates harvested", "message": "Missing crates harvested"}), 400
+    day, time = when(data)
+    leader = str(data.get('Team') or "Unassigned").strip()
+    conn = None
+    try:
+        conn = get_db()
+        team = conn.execute(
+            "SELECT id FROM teams WHERE leader = ? AND date = ? ORDER BY id DESC LIMIT 1",
+            (leader, day)).fetchone()
+        if team:
+            team_id = team["id"]
+        else:  # leader not clocked in yet: create the team so nothing is lost
+            team_id = conn.execute(
+                "INSERT INTO teams (date, clock_in, leader, block, workers) VALUES (?,?,?,?,?)",
+                (day, time, leader, norm_block(data.get('operationBlock')) or "Block 1", 0)).lastrowid
+        conn.execute(
+            "INSERT INTO harvests (team_id, date, time, crates, trees, rejected) VALUES (?,?,?,?,?,?)",
+            (team_id, day, time, to_int(data.get('CratesHarvested')),
+             to_int(data.get('NumOfTrees')), to_int(data.get('RejectedCrates'))))
+        conn.commit()
+        return jsonify({"status": "success", "message": "Harvest saved. It will now show on the dashboard."}), 201
+    except Exception as e:
+        return jsonify({"error": str(e), "message": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 
-# --- LOGISTICS ENDPOINT (POST) ---
+# --- LOGISTICS (POST) ---
 @api_bp.route('/logistics', methods=['POST'])
 def save_logistics():
-    def handler(cursor, d, day, time):
-        if not d.get("tripNumber"):
-            return "Missing trip number"
-        cursor.execute(
-            "INSERT INTO logistics (trip_number, vehicle_type, vehicle_registration, destination, "
-            "number_crates_loaded, number_crates_at_destination, driver_id, date_time_id, block) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            (d["tripNumber"], d["vehicleType"], d["vehicleInfo"], clean_destination(d.get("destination")),
-             d["numCrates"], d["numCratesDest"], get_person_id(cursor, d["driverInfo"]),
-             get_date_time_id(cursor, day, time), clean_block(d.get("operationBlock"))))
-    return save(handler)
+    data = request.get_json(silent=True)
+    if not data or data.get('tripNumber') in (None, ""):
+        return jsonify({"error": "Missing trip number", "message": "Missing trip number"}), 400
+    day, time = when(data)
+    dest = {"PackHouse": "Pack house", "FarmShed": "Farm shed"}.get(
+        data.get('destination'), data.get('destination') or "Other")
+    conn = None
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO logistics (date, time, trip, vehicle, registration, driver, destination, block, loaded, delivered)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (day, time, to_int(data.get('tripNumber')), data.get('vehicleType'),
+             data.get('vehicleInfo'), data.get('driverInfo'), dest,
+             norm_block(data.get('operationBlock')) or "Block 1",
+             to_int(data.get('numCrates')), to_int(data.get('numCratesDest'))))
+        conn.commit()
+        return jsonify({"status": "success", "message": "Trip saved. It will now show on the dashboard."}), 201
+    except Exception as e:
+        return jsonify({"error": str(e), "message": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 
-# --- NOTES ENDPOINT (POST) ---
+# --- NOTES (POST) ---
 @api_bp.route('/notes', methods=['POST'])
 def save_notes():
-    def handler(cursor, d, day, time):
-        if not d.get("endShiftCrates"):
-            return "Missing end shift crates"
-        cursor.execute(
-            "INSERT INTO operations (number_end_shift_crates, delays, remarks, date_time_id, block) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            (d["endShiftCrates"], d.get("delaysInfo", ""), d.get("remarksInfo", ""),
-             get_date_time_id(cursor, day, time), clean_block(d.get("operationBlock"))))
-    return save(handler)
+    data = request.get_json(silent=True)
+    if not data or data.get('endShiftCrates') in (None, ""):
+        return jsonify({"error": "Missing end shift crates", "message": "Missing end shift crates"}), 400
+    day, time = when(data)
+    conn = None
+    try:
+        conn = get_db()
+        conn.execute(
+            "INSERT INTO notes (date, time, block, end_crates, delays, remarks) VALUES (?,?,?,?,?,?)",
+            (day, time, norm_block(data.get('operationBlock')) or "Block 1",
+             to_int(data.get('endShiftCrates')),
+             data.get('delaysInfo', ''), data.get('remarksInfo', '')))
+        conn.commit()
+        return jsonify({"status": "success", "message": "Notes saved. They will now show on the dashboard."}), 201
+    except Exception as e:
+        return jsonify({"error": str(e), "message": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 
-# --- GET ALL HARVESTS WITH PAGINATION & FILTERING ---
+# --- GET ALL HARVESTS (pagination + filtering) ---
 @api_bp.route('/harvests', methods=['GET'])
 def get_all_harvests():
-    """
-    Demonstrates pagination and filtering.
-    Example: /api/harvests?page=1&limit=5&block=Block1
-    """
     page = request.args.get('page', 1, type=int)
     limit = request.args.get('limit', 10, type=int)
     block = request.args.get('block', default=None, type=str)
-
-    # Mock database list (Mfanelo will replace this with a real SQL SELECT query)
-    mock_db = [
-        {"id": 1, "block": "Block1", "crates": 100},
-        {"id": 2, "block": "Block2", "crates": 150},
-        {"id": 3, "block": "Block1", "crates": 120},
-    ]
-
-    # Filtering
-    if block:
-        mock_db = [h for h in mock_db if h["block"] == block]
-
-    # Pagination
+    conn = get_db()
+    try:
+        sql = ("SELECT h.id, t.block, h.crates FROM harvests h JOIN teams t ON t.id = h.team_id")
+        params = []
+        if block:
+            sql += " WHERE t.block = ?"
+            params.append(norm_block(block))
+        rows = [dict(r) for r in conn.execute(sql + " ORDER BY h.id", params).fetchall()]
+    finally:
+        conn.close()
     start = (page - 1) * limit
-    end = start + limit
-    paginated_data = mock_db[start:end]
-
-    return jsonify({
-        "page": page,
-        "limit": limit,
-        "total_results": len(mock_db),
-        "data": paginated_data
-    }), 200
+    return jsonify({"page": page, "limit": limit, "total_results": len(rows),
+                    "data": rows[start:start + limit]}), 200
 
 
 # --- UPDATE HARVEST (PUT) ---
 @api_bp.route('/harvest/<int:harvest_id>', methods=['PUT'])
 def update_harvest(harvest_id):
-    """
-    Updates an existing harvest record.
-    """
-    data = request.get_json()
-    
+    data = request.get_json(silent=True)
     if not data or 'CratesHarvested' not in data:
         return jsonify({"error": "Missing crates harvested data"}), 400
-
-    # TODO: Replace with real SQL UPDATE query
-    # e.g., UPDATE harvests SET crates = 150 WHERE id = harvest_id
-    print(f"Updating Harvest ID {harvest_id} with data: {data}")
-
-    return jsonify({
-        "status": "success", 
-        "message": f"Harvest record {harvest_id} updated successfully"
-    }), 200
+    conn = get_db()
+    try:
+        cur = conn.execute("UPDATE harvests SET crates = ? WHERE id = ?",
+                           (to_int(data['CratesHarvested']), harvest_id))
+        conn.commit()
+        if cur.rowcount == 0:
+            return jsonify({"error": "Harvest not found"}), 404
+    finally:
+        conn.close()
+    return jsonify({"status": "success",
+                    "message": f"Harvest record {harvest_id} updated successfully"}), 200

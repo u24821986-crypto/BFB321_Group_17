@@ -71,7 +71,7 @@
 
                         <!-- Back to Home Link -->
                         <div class="text-center mt-4">
-                            <a href="index.html" class="text-decoration-none text-muted">← Back to Home</a>
+                            <a href="/" class="text-decoration-none text-muted">← Back to Home</a>
                         </div>
 
                     </div>
@@ -93,9 +93,9 @@
             btn.innerText = "Logging in...";
             btn.disabled = true;
 
-            // 3. Smoothly transition to the dashboard after 1 second
+            // 3. Smoothly transition to the Flask route after 1 second
             setTimeout(function() {
-                window.location.href = "dashboard.html"; 
+                window.location.href = "/dashboard"; // FIXED: Points to Flask route now
             }, 1000);
         });
     </script>

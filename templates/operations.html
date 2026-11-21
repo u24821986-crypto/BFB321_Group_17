@@ -280,7 +280,7 @@
                     document.querySelectorAll('input[type="date"]').forEach((i) => i.value = todayString);
                     document.querySelectorAll('input[type="time"]').forEach((i) => i.value = currentTime);
                 } else {
-                    alert("Error: " + (result.message || "The server rejected the data."));
+                    alert("Error: " + (result.message || `The server sent an error (HTTP ${response.status}). Check the Render logs.`));
                 }
             } catch (error) {
                 console.error("API Connection Error:", error);

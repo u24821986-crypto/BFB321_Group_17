@@ -223,6 +223,8 @@
         const farmGold = "#f9d000";
         const TICK_MS = 5000;
         const SERVER_RETRY_MS = 15000;
+        const SAMPLE_INTERVAL_MS = 10 * 60 * 1000; // new sample data every 10 minutes
+        let lastSampleAt = Date.now();
         const API_BASE = location.protocol === "file:" ? "http://localhost:5000" : "";
 
         const pad = (n) => String(n).padStart(2, "0");
@@ -317,6 +319,9 @@
         }
 
         function simulateActivity() {
+            // Only generate new sample data once every 10 minutes
+            if (Date.now() - lastSampleAt < SAMPLE_INTERVAL_MS) return;
+            lastSampleAt = Date.now();
             demo.tick += 1;
             const activeTeams = demo.teams.filter((t) => t.date === todayString && !t.end);
             const pool = activeTeams.length ? activeTeams : demo.teams.filter((t) => t.date === todayString);
@@ -563,7 +568,7 @@
         }
 
         function showDemo() {
-            errorBanner.textContent = "The server is not reachable, so simulated sample data is being shown and updates every few seconds. The dashboard switches to live data automatically once the server is running.";
+            errorBanner.textContent = "The server is not reachable, so simulated sample data is being shown and refreshes every 10 minutes. The dashboard switches to live data automatically once the server is running.";
             errorBanner.classList.remove("d-none");
             liveDot.className = "badge rounded-pill text-bg-warning";
             liveDot.textContent = "Sample data";
@@ -618,4 +623,3 @@
     </script>
 </body>
 </html>
-

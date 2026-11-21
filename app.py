@@ -1,116 +1,165 @@
-"""
-app.py
+from flask import Blueprint, jsonify, request
+import pymysql
 
-SmartHarvest Flask application entry point.
+# Create a blueprint for the API 
+api_bp = Blueprint('api', __name__)
 
-Responsibilities:
-- Load environment-specific config from config.py
-- Configure Python logging to app.log with timestamps
-- Centralised error handlers (400, 404, 500) returning JSON
-- Database connection via SQLAlchemy, read from .env
-- Health-check endpoint for Render
-"""
-
-import logging
-from logging.handlers import RotatingFileHandler
-
-from flask import Flask, jsonify, render_template
-from flask_sqlalchemy import SQLAlchemy
-
-from config import get_config
-
-db = SQLAlchemy()
-
-
-
-def create_app(env: str | None = None) -> Flask:
-    """Application factory."""
-    app = Flask(__name__, template_folder="templates")
-    app.config.from_object(get_config(env))
-
-    _configure_logging(app)
-    db.init_app(app)
-
-    # Register blueprints (Routes)
-    from routes.api import api_bp
-    app.register_blueprint(api_bp, url_prefix="/api")
-
-    # Website routes
-    @app.route("/")
-    def home():
-        return render_template("index.html")
-
-    @app.route("/login")
-    def login():
-        return render_template("login.html")
-
-    @app.route("/operations")
-    def operations():
-        return render_template("operations.html")
-
-    @app.route("/dashboard")
-    def dashboard():
-        return render_template("dashboard.html")
-
-    # Health check
-    @app.route("/health")
-    def health():
-        return jsonify(status="ok"), 200
-
-    _register_error_handlers(app)
-
-    app.logger.info(
-        "SmartHarvest app started (env=%s)",
-        app.config.get("ENV")
+# Add the database connection function 
+def get_db_connection():
+    return pymysql.connect(
+        host='localhost',
+        user='root',      
+        password='',      # Empty because no password was set
+        database='mydb',  
+        cursorclass=pymysql.cursors.DictCursor
     )
 
-    return app
+# --- DASHBOARD ENDPOINT (GET) ---
+@api_bp.route('/dashboard', methods=['GET'])
+def get_dashboard_data():
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT SUM(total_crates_number) as total FROM harvest_crates")
+            result = cursor.fetchone()
+            total_harvested = result['total'] if result['total'] else 0
+            
+            cursor.execute("SELECT SUM(number_crates_loaded) as total FROM logistics")
+            result = cursor.fetchone()
+            total_dispatched = result['total'] if result['total'] else 0
+            
+        mock_harvest = [0, 0, 0, 0, 0, 0, total_harvested]
+        mock_destinations = [total_dispatched, 0, 0]
+            
+        return jsonify({
+            "harvestValues": mock_harvest,
+            "destinationValues": mock_destinations
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if 'connection' in locals() and connection.open:
+            connection.close()
+
+# --- TEAM ENDPOINT (POST) ---
+@api_bp.route('/team', methods=['POST'])
+def save_team_info():
+    data = request.get_json()
+    
+    # Basic validation
+    if not data or 'teamInfo' not in data:
+        return jsonify({"error": "Missing team leader name"}), 400
+        
+    print("Received Team Data:", data)
+    
+    return jsonify({"status": "success", "message": "Team info saved"}), 201
 
 
-def _configure_logging(app: Flask) -> None:
-    """Log to app.log with rotation; also log to console."""
-    level = getattr(logging, app.config["LOG_LEVEL"].upper(), logging.INFO)
-    formatter = logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+# --- HARVEST ENDPOINT (POST) ---
+@api_bp.route('/harvest', methods=['POST'])
+def save_harvest():
+    data = request.get_json()
+    
+    if not data or 'CratesHarvested' not in data:
+        return jsonify({"error": "Missing crates harvested"}), 400
+        
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            sql = """
+                INSERT INTO harvest_crates 
+                (total_crates_number, tree_number, rejected_crates_number, team_id, date_time_id) 
+                VALUES (%s, %s, %s, %s, %s)
+            """
+            cursor.execute(sql, (
+                data.get('CratesHarvested'), 
+                data.get('NumOfTrees', 0), 
+                data.get('RejectedCrates', 0), 
+                1, 
+                1 
+            ))
+            connection.commit()
+            
+        return jsonify({"status": "success", "message": "Harvest saved to database"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if 'connection' in locals() and connection.open:
+            connection.close()
+            
+# --- LOGISTICS ENDPOINT (POST) ---
+@api_bp.route('/logistics', methods=['POST'])
+def save_logistics():
+    data = request.get_json()
+    
+    if not data or 'tripNumber' not in data:
+        return jsonify({"error": "Missing trip number"}), 400
+        
+    print("Received Logistics Data:", data)
+    
+    return jsonify({"status": "success", "message": "Logistics saved"}), 201
 
-    file_handler = RotatingFileHandler(
-        app.config["LOG_FILE"], maxBytes=1_000_000, backupCount=3
-    )
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(level)
 
-    console = logging.StreamHandler()
-    console.setFormatter(formatter)
-    console.setLevel(level)
+# --- NOTES ENDPOINT (POST) ---
+@api_bp.route('/notes', methods=['POST'])
+def save_notes():
+    data = request.get_json()
+    
+    print("Received Notes Data:", data)
+    
+    return jsonify({"status": "success", "message": "Notes saved"}), 201
 
-    app.logger.handlers.clear()
-    app.logger.addHandler(file_handler)
-    app.logger.addHandler(console)
-    app.logger.setLevel(level)
+# --- GET ALL HARVESTS WITH PAGINATION & FILTERING ---
+@api_bp.route('/harvests', methods=['GET'])
+def get_all_harvests():
+    """
+    Demonstrates pagination and filtering.
+    Example: /api/harvests?page=1&limit=5&block=Block1
+    """
+    page = request.args.get('page', 1, type=int)
+    limit = request.args.get('limit', 10, type=int)
+    block = request.args.get('block', default=None, type=str)
+
+    # Mock database list (Mfanelo will replace this with a real SQL SELECT query)
+    mock_db = [
+        {"id": 1, "block": "Block1", "crates": 100},
+        {"id": 2, "block": "Block2", "crates": 150},
+        {"id": 3, "block": "Block1", "crates": 120},
+    ]
+
+    # Filtering
+    if block:
+        mock_db = [h for h in mock_db if h["block"] == block]
+
+    # Pagination
+    start = (page - 1) * limit
+    end = start + limit
+    paginated_data = mock_db[start:end]
+
+    return jsonify({
+        "page": page,
+        "limit": limit,
+        "total_results": len(mock_db),
+        "data": paginated_data
+    }), 200
 
 
-def _register_error_handlers(app: Flask) -> None:
-    """Return clean JSON errors and log them — never show stack traces."""
+# --- UPDATE HARVEST (PUT) ---
+@api_bp.route('/harvest/<int:harvest_id>', methods=['PUT'])
+def update_harvest(harvest_id):
+    """
+    Updates an existing harvest record.
+    """
+    data = request.get_json()
+    
+    if not data or 'CratesHarvested' not in data:
+        return jsonify({"error": "Missing crates harvested data"}), 400
 
-    @app.errorhandler(400)
-    def bad_request(e):
-        app.logger.warning("400 Bad Request: %s", e)
-        return jsonify(error="Bad request", message=str(e)), 400
+    # TODO: Replace with real SQL UPDATE query
+    # e.g., UPDATE harvests SET crates = 150 WHERE id = harvest_id
+    print(f"Updating Harvest ID {harvest_id} with data: {data}")
 
-    @app.errorhandler(404)
-    def not_found(e):
-        app.logger.warning("404 Not Found: %s", e)
-        return jsonify(error="Not found", message=str(e)), 404
-
-    @app.errorhandler(500)
-    def server_error(e):
-        app.logger.exception("500 Internal Server Error")
-        db.session.rollback()  # rollback any failed write
-        return jsonify(error="Internal server error"), 500
-
-
-if __name__ == "__main__":
-    app = create_app()
-    app.run(host="0.0.0.0", port=5000, debug=app.config["DEBUG"])
+    return jsonify({
+        "status": "success", 
+        "message": f"Harvest record {harvest_id} updated successfully"
+    }), 200

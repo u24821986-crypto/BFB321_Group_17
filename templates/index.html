@@ -48,7 +48,7 @@
             <a class="navbar-brand d-flex align-items-center" href="#">
                 <img src="images/logo.png" alt="Rebander Logo" height="60" class="me-3">
             </a>
-            <a href="login.html" class="btn btn-brand-yellow px-4 py-2 shadow-sm">Log In</a>
+            <a href="login.html" class="btn btn-brand-yellow px-4 py-2 shadow-sm dynamic-link">Log In</a>
         </div>
     </nav>
 
@@ -61,16 +61,16 @@
         
         <!-- 3. The Action Buttons -->
         <div class="mt-5 mb-5">
-            <a href="operations.html" class="btn btn-brand-yellow btn-lg px-4 py-3 shadow me-3">
+            <a href="operations.html" class="btn btn-brand-yellow btn-lg px-4 py-3 shadow me-3 dynamic-link">
                 Log Daily Operations
             </a>
-            <a href="dashboard.html" class="btn btn-outline-dark btn-lg px-4 py-3 shadow">
+            <a href="dashboard.html" class="btn btn-outline-dark btn-lg px-4 py-3 shadow dynamic-link">
                 View Management Dashboard
             </a>
         </div>
     </div>
 
-    <!-- 4. Floating Feature Cards (UPDATED FOR 1 BLOCK PER DAY) -->
+    <!-- 4. Floating Feature Cards -->
     <div class="container mb-5">
         <div class="row g-4 justify-content-center">
             
@@ -116,7 +116,32 @@
         <p class="text-brand-yellow mb-0 mt-1 fw-bold">SmartHarvest Supply Chain Technologies</p>
     </footer>
 
+    <!-- DYNAMIC JAVASCRIPT FOR BUTTON TRANSITIONS -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Find all links with the class 'dynamic-link'
+            const links = document.querySelectorAll('.dynamic-link');
+            
+            links.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault(); // Stop instant reload
+                    
+                    // Show a dynamic loading state on the button
+                    const originalText = this.innerText;
+                    this.innerText = "Loading...";
+                    this.style.opacity = "0.7";
+                    
+                    // Get the destination URL from the href
+                    const targetUrl = this.getAttribute('href');
+                    
+                    // Small delay to show the UI change, then navigate
+                    setTimeout(() => {
+                        window.location.href = targetUrl;
+                    }, 400);
+                });
+            });
+        });
+    </script>
+
 </body>
 </html>
-
-   

@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -221,207 +221,15 @@
     <script>
         const farmGreen = "#005333";
         const farmGold = "#f9d000";
-        const TICK_MS = 5000;
-        const SERVER_RETRY_MS = 15000;
         const API_BASE = location.protocol === "file:" ? "http://localhost:5000" : "";
-
-        const pad = (n) => String(n).padStart(2, "0");
-        const toDateString = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        const nowTime = () => {
-            const d = new Date();
-            return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        };
-        const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-        const pick = (list) => list[randInt(0, list.length - 1)];
-
-        const todayString = toDateString(new Date());
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayString = toDateString(yesterday);
-
-        const demo = { teams: [], harvests: [], trips: [], notes: [], tick: 0 };
-        const vehicles = [
-            { type: "Tractor", registration: "XYZ-123" },
-            { type: "Truck", registration: "ABC-456" },
-            { type: "Truck", registration: "JKL-901" },
-            { type: "Bakkie", registration: "PMG-123" }
-        ];
-        const drivers = ["John Doe", "Jane Smith", "Chantel Davis", "Mike Johnson"];
-        const destinations = ["Pack house", "Farm shed", "Other"];
-        const delayOptions = ["", "", "Tractor breakdown 30 min", "Rain delay 20 min", "Waiting for crates"];
-
-        function addTeam(id, date, start, end, leader, block, workers) {
-            demo.teams.push({ id, date, start, end, leader, block, workers });
-        }
-
-        function addHarvest(teamId, date, time, crates, trees, rejected) {
-            demo.harvests.push({ teamId, date, time, crates, trees, rejected });
-        }
-
-        function addTrip(date, time, block, vehicle, driver, destination, loaded, delivered) {
-            const trip = demo.trips.filter((t) => t.date === date && t.block === block).length + 1;
-            demo.trips.push({
-                date, time, block, trip, vehicle: vehicle.type, registration: vehicle.registration,
-                driver, destination, loaded, delivered
-            });
-        }
-
-        function upsertNote(date, block, endCrates, delays, remarks) {
-            const existing = demo.notes.find((n) => n.date === date && n.block === block);
-            if (existing) {
-                existing.time = nowTime();
-                existing.endCrates = endCrates;
-                if (delays !== null) existing.delays = delays;
-                return;
-            }
-            demo.notes.push({ date, block, time: nowTime(), endCrates, delays: delays || "", remarks: remarks || "" });
-        }
-
-        function seedDemo() {
-            addTeam(1, todayString, "04:30", "12:30", "John Doe", "Block 1", 5);
-            addTeam(2, todayString, "05:10", null, "Jane Smith", "Block 1", 8);
-            addTeam(3, todayString, "05:55", null, "Mike Johnson", "Block 2", 6);
-            addTeam(4, todayString, "06:20", null, "Chantel Davis", "Block 3", 7);
-            addTeam(5, yesterdayString, "04:30", "16:30", "John Doe", "Block 1", 5);
-            addTeam(6, yesterdayString, "05:10", "15:10", "Jane Smith", "Block 2", 8);
-
-            addHarvest(1, todayString, "04:30", 100, 20, 5);
-            addHarvest(2, todayString, "08:30", 150, 25, 10);
-            addHarvest(3, todayString, "10:20", 120, 22, 8);
-            addHarvest(4, todayString, "10:45", 60, 12, 3);
-            addHarvest(5, yesterdayString, "09:00", 140, 24, 6);
-            addHarvest(5, yesterdayString, "13:30", 110, 20, 4);
-            addHarvest(6, yesterdayString, "10:15", 160, 28, 9);
-
-            addTrip(todayString, "08:47", "Block 1", vehicles[0], "John Doe", "Pack house", 100, 80);
-            addTrip(todayString, "09:00", "Block 1", vehicles[1], "Jane Smith", "Farm shed", 60, 55);
-            addTrip(todayString, "11:09", "Block 2", vehicles[2], "Chantel Davis", "Pack house", 100, 92);
-            addTrip(yesterdayString, "11:00", "Block 1", vehicles[0], "John Doe", "Pack house", 250, 240);
-            addTrip(yesterdayString, "14:00", "Block 2", vehicles[1], "Jane Smith", "Farm shed", 160, 150);
-
-            demo.notes.push({ date: todayString, block: "Block 1", time: "10:00", endCrates: 90, delays: "Tractor breakdown 30 min", remarks: "Heavy rainfall expected tomorrow" });
-            demo.notes.push({ date: yesterdayString, block: "Block 1", time: "16:00", endCrates: 10, delays: "", remarks: "All crates cleared" });
-        }
-
-        function blockHarvested(date, block) {
-            const teamIds = demo.teams.filter((t) => t.date === date && t.block === block).map((t) => t.id);
-            return demo.harvests
-                .filter((h) => h.date === date && teamIds.includes(h.teamId))
-                .reduce((sum, h) => sum + h.crates, 0);
-        }
-
-        function blockLoaded(date, block) {
-            return demo.trips
-                .filter((t) => t.date === date && t.block === block)
-                .reduce((sum, t) => sum + t.loaded, 0);
-        }
-
-        function simulateActivity() {
-            demo.tick += 1;
-            const activeTeams = demo.teams.filter((t) => t.date === todayString && !t.end);
-            const pool = activeTeams.length ? activeTeams : demo.teams.filter((t) => t.date === todayString);
-            if (!pool.length) return;
-
-            const team = pick(pool);
-            addHarvest(team.id, todayString, nowTime(), randInt(8, 30), randInt(2, 8), randInt(0, 4));
-
-            if (demo.tick % 3 === 0) {
-                const block = pick([...new Set(pool.map((t) => t.block))]);
-                const available = blockHarvested(todayString, block) - blockLoaded(todayString, block);
-                if (available > 0) {
-                    const loaded = Math.min(available, randInt(40, 90));
-                    const delivered = Math.max(loaded - randInt(0, 8), 0);
-                    addTrip(todayString, nowTime(), block, pick(vehicles), pick(drivers), pick(destinations), loaded, delivered);
-                }
-                const remaining = Math.max(blockHarvested(todayString, block) - blockLoaded(todayString, block), 0);
-                upsertNote(todayString, block, remaining, pick(delayOptions), "");
-            }
-        }
-
-        function hoursBetween(start, end) {
-            if (!end) return null;
-            const [sh, sm] = start.split(":").map(Number);
-            const [eh, em] = end.split(":").map(Number);
-            return Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 6) / 10;
-        }
-
-        function buildDemoData(blockValue, date) {
-            const blockName = blockValue === "all" ? null : `Block ${blockValue.replace(/\D/g, "")}`;
-            const matchesBlock = (b) => !blockName || b === blockName;
-
-            const teams = demo.teams
-                .filter((t) => t.date === date && matchesBlock(t.block))
-                .sort((a, b) => a.start.localeCompare(b.start));
-            const teamIds = teams.map((t) => t.id);
-            const harvests = demo.harvests
-                .filter((h) => h.date === date && teamIds.includes(h.teamId))
-                .sort((a, b) => a.time.localeCompare(b.time));
-            const trips = demo.trips
-                .filter((t) => t.date === date && matchesBlock(t.block))
-                .sort((a, b) => a.time.localeCompare(b.time));
-            const notes = demo.notes
-                .filter((n) => n.date === date && matchesBlock(n.block))
-                .sort((a, b) => b.time.localeCompare(a.time));
-
-            const shiftOverview = teams.map((t) => {
-                const entries = harvests.filter((h) => h.teamId === t.id);
-                return {
-                    start: t.start,
-                    end: t.end || "--:--",
-                    hours: hoursBetween(t.start, t.end),
-                    leader: t.leader,
-                    block: t.block,
-                    workers: t.workers,
-                    crates: entries.reduce((s, h) => s + h.crates, 0),
-                    rejected: entries.reduce((s, h) => s + h.rejected, 0),
-                    trees: entries.reduce((s, h) => s + h.trees, 0)
-                };
-            });
-
-            const operations = harvests.map((h) => {
-                const t = teams.find((x) => x.id === h.teamId);
-                return {
-                    time: h.time, leader: t.leader, block: t.block, workers: t.workers,
-                    crates: h.crates, trees: h.trees, rejected: h.rejected
-                };
-            });
-
-            const logistics = trips.map((t) => ({
-                time: t.time, trip: t.trip, vehicle: t.vehicle, registration: t.registration,
-                driver: t.driver, destination: t.destination, loaded: t.loaded, delivered: t.delivered
-            }));
-
-            const harvested = shiftOverview.reduce((s, r) => s + r.crates, 0);
-            const loaded = trips.reduce((s, t) => s + t.loaded, 0);
-            const awaiting = Math.max(harvested - loaded, 0);
-            const shiftEnd = notes.length ? notes[0].endCrates : awaiting;
-
-            const destinationTotals = { "Pack house": 0, "Farm shed": 0, "Other": 0 };
-            trips.forEach((t) => {
-                const key = t.destination in destinationTotals ? t.destination : "Other";
-                destinationTotals[key] += t.delivered;
-            });
-
-            return {
-                kpis: { harvestedToday: harvested, awaitingTransport: awaiting, shiftEnd: shiftEnd },
-                harvestChart: {
-                    labels: shiftOverview.map((s) => `${s.leader} (${s.start})`),
-                    values: shiftOverview.map((s) => s.crates)
-                },
-                destinationChart: {
-                    labels: Object.keys(destinationTotals),
-                    values: Object.values(destinationTotals)
-                },
-                shiftOverview,
-                operations,
-                logistics,
-                notes: notes.map((n) => ({ endCrates: n.endCrates, delays: n.delays, remarks: n.remarks }))
-            };
-        }
 
         const dateInput = document.getElementById("DateHarvested");
         const blockSelect = document.getElementById("productionBlock");
-        dateInput.value = todayString;
+        const errorBanner = document.getElementById("errorBanner");
+        const liveDot = document.getElementById("liveDot");
+        const lastUpdated = document.getElementById("lastUpdated");
+
+        dateInput.value = new Date().toISOString().slice(0, 10);
 
         const harvestChart = new Chart(document.getElementById("harvestChart"), {
             type: "bar",
@@ -430,8 +238,8 @@
                 datasets: [{
                     label: "Crates harvested",
                     data: [],
-                    borderColor: farmGreen,
                     backgroundColor: farmGreen,
+                    borderColor: farmGreen,
                     borderWidth: 1
                 }]
             },
@@ -535,7 +343,7 @@
             destinationChart.update();
 
             fillTable("shiftOverviewTable", data.shiftOverview,
-                ["start", "end", (r) => r.hours ?? "-", "leader", "block", "workers", "crates", "rejected", "trees"],
+                ["start", "end", "hours", "leader", "block", "workers", "crates", "rejected", "trees"],
                 "No shifts recorded for this selection.");
             fillTable("operationsTable", data.operations,
                 ["time", "leader", "block", "workers", "crates", "trees", "rejected"],
@@ -548,13 +356,6 @@
                 "No operational notes for this selection.");
         }
 
-        const errorBanner = document.getElementById("errorBanner");
-        const liveDot = document.getElementById("liveDot");
-        const lastUpdated = document.getElementById("lastUpdated");
-        let inFlight = false;
-        let serverIsLive = false;
-        let lastServerTry = 0;
-
         function showLive() {
             errorBanner.classList.add("d-none");
             liveDot.className = "badge rounded-pill text-bg-success";
@@ -562,42 +363,32 @@
             lastUpdated.textContent = `Updated ${new Date().toLocaleTimeString()}`;
         }
 
-        function showDemo() {
-            errorBanner.textContent = "The server is not reachable, so simulated sample data is being shown and updates every few seconds. The dashboard switches to live data automatically once the server is running.";
+        function showError(msg) {
+            errorBanner.textContent = msg;
             errorBanner.classList.remove("d-none");
-            liveDot.className = "badge rounded-pill text-bg-warning";
-            liveDot.textContent = "Sample data";
-            lastUpdated.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+            liveDot.className = "badge rounded-pill text-bg-danger";
+            liveDot.textContent = "Offline";
+            lastUpdated.textContent = "";
         }
 
-        async function fetchFromServer() {
-            const params = new URLSearchParams({ block: blockSelect.value, date: dateInput.value });
-            const response = await fetch(`${API_BASE}/api/dashboard?${params}`, { cache: "no-store" });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || `Server returned ${response.status}`);
-            return data;
-        }
+        let inFlight = false;
 
-        async function loadDashboardData(force) {
+        async function loadDashboardData() {
             if (inFlight) return;
             inFlight = true;
             try {
-                const due = Date.now() - lastServerTry >= SERVER_RETRY_MS;
-                if (serverIsLive || due || force) {
-                    lastServerTry = Date.now();
-                    try {
-                        const data = await fetchFromServer();
-                        serverIsLive = true;
-                        render(data);
-                        showLive();
-                        return;
-                    } catch (error) {
-                        serverIsLive = false;
-                    }
-                }
-                simulateActivity();
-                render(buildDemoData(blockSelect.value, dateInput.value));
-                showDemo();
+                const params = new URLSearchParams({
+                    block: blockSelect.value,
+                    date: dateInput.value
+                });
+                const response = await fetch(`${API_BASE}/api/dashboard?${params}`, { cache: "no-store" });
+                if (!response.ok) throw new Error(`Server returned ${response.status}`);
+                const data = await response.json();
+                render(data);
+                showLive();
+            } catch (err) {
+                showError("Could not load dashboard data. Make sure the Flask server is running.");
+                console.error(err);
             } finally {
                 inFlight = false;
             }
@@ -605,16 +396,12 @@
 
         document.getElementById("filterForm").addEventListener("submit", (e) => {
             e.preventDefault();
-            loadDashboardData(true);
+            loadDashboardData();
         });
-        blockSelect.addEventListener("change", () => loadDashboardData(true));
-        dateInput.addEventListener("change", () => loadDashboardData(true));
+        blockSelect.addEventListener("change", loadDashboardData);
+        dateInput.addEventListener("change", loadDashboardData);
 
-        setInterval(() => { if (!document.hidden) loadDashboardData(false); }, TICK_MS);
-        document.addEventListener("visibilitychange", () => { if (!document.hidden) loadDashboardData(true); });
-
-        seedDemo();
-        loadDashboardData(true);
+        loadDashboardData();
     </script>
 </body>
 </html>

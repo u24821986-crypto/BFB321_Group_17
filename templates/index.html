@@ -117,31 +117,40 @@
     </footer>
 
     <!-- DYNAMIC JAVASCRIPT FOR BUTTON TRANSITIONS -->
+       <!-- DYNAMIC JAVASCRIPT FOR BUTTON TRANSITIONS -->
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // Find all links with the class 'dynamic-link'
             const links = document.querySelectorAll('.dynamic-link');
-            
+
             links.forEach(link => {
+                // Remember the original button text
+                link.dataset.originalText = link.innerText;
+
                 link.addEventListener('click', function(e) {
-                    e.preventDefault(); // Stop instant reload
-                    
-                    // Show a dynamic loading state on the button
-                    const originalText = this.innerText;
+                    e.preventDefault();
+
                     this.innerText = "Loading...";
                     this.style.opacity = "0.7";
-                    
-                    // Get the destination URL from the href
+
                     const targetUrl = this.getAttribute('href');
-                    
-                    // Small delay to show the UI change, then navigate
+
                     setTimeout(() => {
                         window.location.href = targetUrl;
                     }, 400);
                 });
             });
         });
-    </script>
 
+        // Reset the buttons whenever the page is shown again
+        // (back button, cached page, etc.)
+        window.addEventListener("pageshow", function() {
+            document.querySelectorAll('.dynamic-link').forEach(link => {
+                if (link.dataset.originalText) {
+                    link.innerText = link.dataset.originalText;
+                }
+                link.style.opacity = "1";
+            });
+        });
+    </script>
 </body>
 </html>

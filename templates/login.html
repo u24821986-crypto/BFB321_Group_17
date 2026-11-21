@@ -48,24 +48,24 @@
                             <p class="text-muted">Rembander Agribusiness</p>
                         </div>
 
-                        <!-- The Form (Action points to dashboard.html) -->
-                        <form action="dashboard.html">
+                        <!-- The Form -->
+                        <form id="loginForm">
                             
                             <!-- Username Input -->
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Username</label>
-                                <input type="text" class="form-control form-control-lg" placeholder="Enter your username" required>
+                                <input type="text" name="username" class="form-control form-control-lg" placeholder="Enter your username" required>
                             </div>
 
                             <!-- Password Input -->
                             <div class="mb-4">
                                 <label class="form-label fw-semibold">Password</label>
-                                <input type="password" class="form-control form-control-lg" placeholder="Enter password" required>
+                                <input type="password" name="password" class="form-control form-control-lg" placeholder="Enter password" required>
                             </div>
 
                             <!-- Submit Button -->
                             <div class="d-grid">
-                                <button type="submit" class="btn btn-brand-yellow btn-lg py-3">Log In</button>
+                                <button type="submit" id="loginBtn" class="btn btn-brand-yellow btn-lg py-3">Log In</button>
                             </div>
                         </form>
 
@@ -80,6 +80,25 @@
             </div>
         </div>
     </div>
+
+    <!-- DYNAMIC JAVASCRIPT IS HERE -->
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(event) {
+            // 1. Stop the page from doing a normal HTML reload
+            event.preventDefault(); 
+            
+            // 2. Grab the button and change it to show loading state (Dynamic UI)
+            const btn = document.getElementById('loginBtn');
+            const originalText = btn.innerText;
+            btn.innerText = "Logging in...";
+            btn.disabled = true;
+
+            // 3. Smoothly transition to the dashboard after 1 second
+            setTimeout(function() {
+                window.location.href = "dashboard.html"; 
+            }, 1000);
+        });
+    </script>
 
 </body>
 </html>

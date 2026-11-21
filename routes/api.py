@@ -1,5 +1,4 @@
-rom datetime import date as date_cls, timedelta
-
+from datetime import date as date_cls, timedelta
 from flask import Blueprint, jsonify, request
 import pymysql
 

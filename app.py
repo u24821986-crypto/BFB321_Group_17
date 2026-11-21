@@ -43,7 +43,22 @@ def create_app(env: str | None = None) -> Flask:
 
     app.logger.info("SmartHarvest app started (env=%s)", app.config.get("ENV"))
     return app
+    
+    @app.route("/")
+    def home():
+        return app.send_static_file("../templates/index.html")
+        
+    @app.route("/login")
+    def login():
+        return app.send_static_file("../templates/login.html")
 
+    @app.route("/operations")
+    def operations():
+        return app.send_static_file("../templates/operations.html")
+
+    @app.route("/dashboard")
+    def dashboard():
+        return app.send_static_file("../templates/dashboard.html")
 
 def _configure_logging(app: Flask) -> None:
     """Log to app.log with rotation; also log to console."""

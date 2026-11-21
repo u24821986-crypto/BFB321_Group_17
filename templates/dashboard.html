@@ -379,7 +379,12 @@
         async function fetchFromServer() {
             const params = new URLSearchParams({ block: blockSelect.value, date: dateInput.value });
             const response = await fetch(`${API_BASE}/api/dashboard?${params}`, { cache: "no-store" });
-            const data = await response.json();
+            let data;
+            try {
+                data = JSON.parse(await response.text());
+            } catch (e) {
+                throw new Error(`the server sent an error page (HTTP ${response.status}) instead of data. Check the Render logs.`);
+            }
             if (!response.ok) throw new Error(data.error || `Server returned ${response.status}`);
             return data;
         }

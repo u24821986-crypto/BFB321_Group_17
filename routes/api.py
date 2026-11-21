@@ -1,146 +1,165 @@
 from flask import Blueprint, jsonify, request
-from app import db
-from models import Team, HarvestCrates, Logistics, Operations, DateTime, Person
-from datetime import datetime
+import pymysql
 
-api_bp = Blueprint("api", __name__)
+# Create a blueprint for the API 
+api_bp = Blueprint('api', __name__)
 
-def _parse_int(value, default=0):
+# Add the database connection function 
+def get_db_connection():
+    return pymysql.connect(
+        host='localhost',
+        user='root',      
+        password='',      # Empty because no password was set
+        database='mydb',  
+        cursorclass=pymysql.cursors.DictCursor
+    )
+
+# --- DASHBOARD ENDPOINT (GET) ---
+@api_bp.route('/dashboard', methods=['GET'])
+def get_dashboard_data():
     try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT SUM(total_crates_number) as total FROM harvest_crates")
+            result = cursor.fetchone()
+            total_harvested = result['total'] if result['total'] else 0
+            
+            cursor.execute("SELECT SUM(number_crates_loaded) as total FROM logistics")
+            result = cursor.fetchone()
+            total_dispatched = result['total'] if result['total'] else 0
+            
+        mock_harvest = [0, 0, 0, 0, 0, 0, total_harvested]
+        mock_destinations = [total_dispatched, 0, 0]
+            
+        return jsonify({
+            "harvestValues": mock_harvest,
+            "destinationValues": mock_destinations
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if 'connection' in locals() and connection.open:
+            connection.close()
 
-def _save_datetime(date_str, time_str):
-    # Helper to insert into date_time table and return the ID
-    if not date_str: date_str = datetime.now().strftime("%Y-%m-%d")
-    if not time_str: time_str = datetime.now().strftime("%H:%M:%S")
-    if len(time_str) == 5: time_str += ":00" # Convert HH:MM to HH:MM:SS
+# --- TEAM ENDPOINT (POST) ---
+@api_bp.route('/team', methods=['POST'])
+def save_team_info():
+    data = request.get_json()
     
-    dt = DateTime(date=date_str, time=time_str)
-    db.session.add(dt)
-    db.session.flush() # Gets the ID before commit
-    return dt.date_time_id
-
-@api_bp.route("/team", methods=["POST"])
-def save_team():
-    data = request.get_json() or {}
-    dt_id = _save_datetime(data.get("DateHarvested"), data.get("TimeHarvested"))
+    # Basic validation
+    if not data or 'teamInfo' not in data:
+        return jsonify({"error": "Missing team leader name"}), 400
+        
+    print("Received Team Data:", data)
     
-    team = Team(
-        team_leader=data.get("teamInfo", ""),
-        num_workers=_parse_int(data.get("NumOfWorkers")),
-        block=data.get("operationBlock", ""),
-        date_time_id=dt_id
-    )
-    db.session.add(team)
-    db.session.commit()
-    return jsonify(status="success", message="Team info saved"), 201
+    return jsonify({"status": "success", "message": "Team info saved"}), 201
 
-@api_bp.route("/harvest", methods=["POST"])
+
+# --- HARVEST ENDPOINT (POST) ---
+@api_bp.route('/harvest', methods=['POST'])
 def save_harvest():
-    data = request.get_json() or {}
-    typed_name = (data.get("Team") or "").strip()
+    data = request.get_json()
     
-    # Look up the team by the name typed
-    team_record = Team.query.filter(Team.team_leader == typed_name).first()
-    if not team_record:
-        return jsonify(status="error", message=f"Team Leader '{typed_name}' not found."), 400
-
-    dt_id = _save_datetime(data.get("DateHarvested"), data.get("TimeHarvested"))
-    
-    harvest = HarvestCrates(
-        team_id=team_record.team_id,
-        date_time_id=dt_id,
-        total_crates_number=_parse_int(data.get("CratesHarvested")),
-        tree_number=_parse_int(data.get("NumOfTrees")),
-        rejected_crates_number=_parse_int(data.get("RejectedCrates")),
-    )
-    db.session.add(harvest)
-    db.session.commit()
-    return jsonify(status="success", message="Harvest saved"), 201
-
-@api_bp.route("/logistics", methods=["POST"])
+    if not data or 'CratesHarvested' not in data:
+        return jsonify({"error": "Missing crates harvested"}), 400
+        
+    try:
+        connection = get_db_connection()
+        with connection.cursor() as cursor:
+            sql = """
+                INSERT INTO harvest_crates 
+                (total_crates_number, tree_number, rejected_crates_number, team_id, date_time_id) 
+                VALUES (%s, %s, %s, %s, %s)
+            """
+            cursor.execute(sql, (
+                data.get('CratesHarvested'), 
+                data.get('NumOfTrees', 0), 
+                data.get('RejectedCrates', 0), 
+                1, 
+                1 
+            ))
+            connection.commit()
+            
+        return jsonify({"status": "success", "message": "Harvest saved to database"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if 'connection' in locals() and connection.open:
+            connection.close()
+            
+# --- LOGISTICS ENDPOINT (POST) ---
+@api_bp.route('/logistics', methods=['POST'])
 def save_logistics():
-    data = request.get_json() or {}
-    dt_id = _save_datetime(data.get("DateHarvested"), data.get("time"))
+    data = request.get_json()
     
-    log = Logistics(
-        trip_number=_parse_int(data.get("tripNumber")),
-        vehicle_type=data.get("vehicleType", ""),
-        vehicle_registration=data.get("vehicleInfo", ""),
-        driver_id=1, # Defaulting to person_id 1 for simplicity
-        destination=data.get("destination", ""),
-        number_crates_loaded=_parse_int(data.get("numCrates")),
-        number_crates_at_destination=_parse_int(data.get("numCratesDest")),
-        date_time_id=dt_id
-    )
-    db.session.add(log)
-    db.session.commit()
-    return jsonify(status="success", message="Logistics saved"), 201
+    if not data or 'tripNumber' not in data:
+        return jsonify({"error": "Missing trip number"}), 400
+        
+    print("Received Logistics Data:", data)
+    
+    return jsonify({"status": "success", "message": "Logistics saved"}), 201
 
-@api_bp.route("/notes", methods=["POST"])
+
+# --- NOTES ENDPOINT (POST) ---
+@api_bp.route('/notes', methods=['POST'])
 def save_notes():
-    data = request.get_json() or {}
-    dt_id = _save_datetime(data.get("DateHarvested"), data.get("TimeHarvested"))
+    data = request.get_json()
     
-    note = Operations(
-        block="Block 1", # Default
-        date_time_id=dt_id,
-        number_end_shift_crates=_parse_int(data.get("endShiftCrates")),
-        delays=data.get("delaysInfo", ""),
-        remarks=data.get("remarksInfo", "")
-    )
-    db.session.add(note)
-    db.session.commit()
-    return jsonify(status="success", message="Notes saved"), 201
+    print("Received Notes Data:", data)
+    
+    return jsonify({"status": "success", "message": "Notes saved"}), 201
 
-@api_bp.route("/dashboard", methods=["GET"])
-def dashboard_data():
-    # Fetch data using your ERD tables
-    teams = Team.query.all()
-    harvests = HarvestCrates.query.all()
-    trips = Logistics.query.all()
-    notes = Operations.query.all()
+# --- GET ALL HARVESTS WITH PAGINATION & FILTERING ---
+@api_bp.route('/harvests', methods=['GET'])
+def get_all_harvests():
+    """
+    Demonstrates pagination and filtering.
+    Example: /api/harvests?page=1&limit=5&block=Block1
+    """
+    page = request.args.get('page', 1, type=int)
+    limit = request.args.get('limit', 10, type=int)
+    block = request.args.get('block', default=None, type=str)
 
-    shift_overview = []
-    for t in teams:
-        entries = [h for h in harvests if h.team_id == t.team_id]
-        shift_overview.append({
-            "leader": t.team_leader, "block": t.block, "workers": t.num_workers,
-            "crates": sum(h.total_crates_number for h in entries),
-            "rejected": sum(h.rejected_crates_number for h in entries),
-            "trees": sum(h.tree_number for h in entries),
-            "start": "04:30", "end": "16:00", "hours": 11.5
-        })
+    # Mock database list (Mfanelo will replace this with a real SQL SELECT query)
+    mock_db = [
+        {"id": 1, "block": "Block1", "crates": 100},
+        {"id": 2, "block": "Block2", "crates": 150},
+        {"id": 3, "block": "Block1", "crates": 120},
+    ]
 
-    operations = []
-    for h in harvests:
-        t = next((x for x in teams if x.team_id == h.team_id), None)
-        operations.append({
-            "leader": t.team_leader if t else "Unknown",
-            "block": t.block if t else "Unknown",
-            "workers": t.num_workers if t else 0,
-            "crates": h.total_crates_number,
-            "trees": h.tree_number,
-            "rejected": h.rejected_crates_number,
-            "time": "08:30"
-        })
+    # Filtering
+    if block:
+        mock_db = [h for h in mock_db if h["block"] == block]
 
-    logistics_rows = [{
-        "trip": t.trip_number, "vehicle": t.vehicle_type,
-        "registration": t.vehicle_registration, "driver": t.driver_id,
-        "destination": t.destination, "loaded": t.number_crates_loaded,
-        "delivered": t.number_crates_at_destination, "time": "09:00"
-    } for t in trips]
+    # Pagination
+    start = (page - 1) * limit
+    end = start + limit
+    paginated_data = mock_db[start:end]
 
-    total_harvested = sum(h.total_crates_number for h in harvests)
-    total_loaded = sum(t.number_crates_loaded for t in trips)
+    return jsonify({
+        "page": page,
+        "limit": limit,
+        "total_results": len(mock_db),
+        "data": paginated_data
+    }), 200
 
-    return jsonify(
-        kpis={"harvestedToday": total_harvested, "awaitingTransport": max(0, total_harvested - total_loaded), "shiftEnd": notes[0].number_end_shift_crates if notes else 0},
-        harvestChart={"labels": [s["leader"] for s in shift_overview], "values": [s["crates"] for s in shift_overview]},
-        destinationChart={"labels": ["Pack house", "Farm shed", "Other"], "values": [total_loaded, 0, 0]},
-        shiftOverview=shift_overview, operations=operations, logistics=logistics_rows, 
-        notes=[{"endCrates": n.number_end_shift_crates, "delays": n.delays, "remarks": n.remarks} for n in notes]
-    ), 200
+
+# --- UPDATE HARVEST (PUT) ---
+@api_bp.route('/harvest/<int:harvest_id>', methods=['PUT'])
+def update_harvest(harvest_id):
+    """
+    Updates an existing harvest record.
+    """
+    data = request.get_json()
+    
+    if not data or 'CratesHarvested' not in data:
+        return jsonify({"error": "Missing crates harvested data"}), 400
+
+    # TODO: Replace with real SQL UPDATE query
+    # e.g., UPDATE harvests SET crates = 150 WHERE id = harvest_id
+    print(f"Updating Harvest ID {harvest_id} with data: {data}")
+
+    return jsonify({
+        "status": "success", 
+        "message": f"Harvest record {harvest_id} updated successfully"
+    }), 200

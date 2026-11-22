@@ -48,3 +48,20 @@ def error(message, status=400):
         "error": message,
         "message": message
     }), status
+
+
+@api_bp.route("/health", methods=["GET"])
+def health():
+    try:
+        connection = get_db_connection()
+        connection.close()
+
+        return success({
+            "status": "ok",
+            "database": "mysql"
+        })
+
+    except Exception as e:
+        return error(str(e), 500)
+
+

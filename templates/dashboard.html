@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -617,6 +617,10 @@
 
         setInterval(() => { if (!document.hidden) loadDashboardData(false); }, TICK_MS);
         document.addEventListener("visibilitychange", () => { if (!document.hidden) loadDashboardData(true); });
+
+        // Keep the free Render server awake while this page is open
+        // (it goes to sleep, and loses saved data, after 15 idle minutes).
+        setInterval(() => { fetch("/health", { cache: "no-store" }).catch(() => {}); }, 4 * 60 * 1000);
 
         seedDemo();
         loadDashboardData(true);

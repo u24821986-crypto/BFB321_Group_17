@@ -257,6 +257,10 @@
             }
         }
 
+        // Keep the free Render server awake while this page is open
+        // (it goes to sleep, and loses saved data, after 15 idle minutes).
+        setInterval(() => { fetch("/health", { cache: "no-store" }).catch(() => {}); }, 4 * 60 * 1000);
+
         document.querySelectorAll("form[data-endpoint]").forEach((f) => f.addEventListener("submit", submitForm));
     </script>
 </body>

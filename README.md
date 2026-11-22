@@ -173,11 +173,9 @@ The application is hosted on Render.
 
 ## Task Allocation
 
-## Task Allocation
-
 | Team Member | Student Number | GitHub Username | Primary Role | Tasks Completed |
 | :--- | :--- | :--- | :--- | :--- |
 | **Livhuwani Ndou** | 23549743 | `u23549743` | Database & Schema | Created MySQL database, wrote ERD and schema.sql, created seed data |
-| **Chantel Mogale** | 24821986 | `u24821986-crypto` | Flask API & Endpoints | Built Flask routes, ensured GET/POST/PUT requests work, formatted JSON responses |
+| **Mfanelo Shilubana** | 18142002 | `MfaneloS` | Flask API & Endpoints | Built Flask routes, ensured GET/POST/PUT requests work, formatted JSON responses |
 | **Seloko Mothupi** | 24804232 | `u24804232-stack` | Connection & Integration | Connected HTML forms to API, updated dashboard KPIs from DB, verified 3 end-to-end flows |
-| **Mfanelo Shilubana** | 18142002 | `MfaneloS` | Deployment & Report | Hosted app on Render, wrote .env and config.py, updated README, wrote 10-mark report |
+| **Chantel Mogale** | 24821986 | `u24821986-crypto` | Deployment & Operations | Hosted app on Render, configured .env and config.py, set up logging, updated README, wrote deployment report section |

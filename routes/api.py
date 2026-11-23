@@ -5,6 +5,9 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from models.harvest_model import calculate_harvest_rate
+from models.transport_model import evaluate_capacity_deficit
+
+
 
 api_bp = Blueprint('api', __name__)
 
@@ -176,6 +179,19 @@ def get_dashboard_data():
         else:
             harvest_rate = 0.0
 
+        # 
+        # TRANSPORT MODEL INTEGRATION: CAPACITY DEFICIT
+        # 
+        available_capacity = 200
+
+        capacity_analysis = evaluate_capacity_deficit(
+            projected_crates=int(awaiting),
+            available_capacity=int(available_capacity)
+        )
+
+
+        
+
         shift_end = notes[0]["endCrates"] if notes else awaiting
 
         # FIXED: Using a single dictionary to track destinations
@@ -220,9 +236,16 @@ def get_dashboard_data():
                     "unit": "crates/hour",
                     "totalHoursWorked": round(total_labor_hours, 2),
                     "modelSource": "models.harvest_model.calculate_harvest_rate"
+                },
+                "transportCapacity": {
+                    "hasDeficit": capacity_analysis["has_deficit"],
+                    "capacityGap": capacity_analysis["capacity_gap"],
+                    "message": capacity_analysis["message"],
+                    "availableCapacity": available_capacity,
+                    "modelSource": "models.transport_model.evaluate_capacity_deficit"
                 }
             },
-    
+
             # REQUIRED BY DASHBOARD.HTML (fixes the crash):
             "harvestChart": {
                 "labels": harvest_chart_labels,

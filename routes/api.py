@@ -21,6 +21,15 @@ from models.bottleneck_model import (
     identify_constraint
 )
 
+from models.optimisation_model import (
+    calculate_remaining_harvest_time,
+    calculate_required_workers,
+    evaluate_workforce_deficit,
+    predict_block_completion_risk
+)
+
+
+
 
 
 api_bp = Blueprint('api', __name__)
@@ -257,6 +266,94 @@ def get_dashboard_data():
             progress=float(harvest_progress),
             utilisation=float(vehicle_util)
         )
+
+        # 
+        # MODEL INTEGRATION: OPTIMISATION & RISK
+        # 
+        
+        # Rembander Base-Case Target Rationale:
+        # - Single Block: 500 trees × 2.0 crates/tree = 1,000 crates
+        # - Farm-Wide Shift: 2 active harvesting teams
+        #   (Block 1 & Block 2 active) = 2,000 crates
+        
+        target_crates = 1000 if block_name else 2000
+        
+        remaining_crates = max(
+            0,
+            int(target_crates - harvested)
+        )
+        
+        # Operational Window Rationale:
+        # Standard 8-hour shift.
+        # Current snapshot represents approximately
+        # the midday checkpoint (~11:00).
+        # 4.0 hours remain before normal shift end
+        # and packhouse cut-off.
+        
+        available_hours = 4.0
+        
+        active_workers = sum(
+            r.get("workers", 0)
+            for r in shift_overview
+        )
+        
+        # 1. Workforce Headcount Requirement
+        
+        required_workers = calculate_required_workers(
+            remaining_crates=int(remaining_crates),
+            available_hours=max(
+                0.5,
+                float(available_hours)
+            )
+        )
+        
+        # 2. Workforce Shortage / Deficit Analysis
+        
+        workforce_analysis = evaluate_workforce_deficit(
+            required_workers=int(required_workers),
+            available_workers=max(
+                0,
+                int(active_workers)
+            )
+        )
+        
+        # 3. Harvest Completion Risk
+        # (GREEN / AMBER / RED)
+        
+        if harvest_rate > 0 and remaining_crates > 0:
+        
+            remaining_harvest_hours = round(
+                calculate_remaining_harvest_time(
+                    remaining_crates=int(remaining_crates),
+                    harvest_rate=float(harvest_rate)
+                ),
+                2
+            )
+        
+            completion_risk = predict_block_completion_risk(
+                remaining_harvest_time=float(
+                    remaining_harvest_hours
+                ),
+                available_hours=float(
+                    available_hours
+                )
+            )
+        
+        else:
+        
+            remaining_harvest_hours = 0.0
+        
+            completion_risk = {
+                "status": "GREEN",
+                "is_at_risk": False,
+                "time_buffer_hours": round(
+                    available_hours,
+                    2
+                ),
+                "message":
+                    "ON TRACK: Harvest target achieved or no crates remaining."
+            }
+        
         
         
 
@@ -339,7 +436,32 @@ def get_dashboard_data():
                     "harvestProgress": harvest_progress,
                     "transportUtilisation": vehicle_util,
                     "modelSource": "models.bottleneck_model.identify_constraint"
-                }
+                },
+
+                "workforceOptimisation": {
+                    "activeWorkers": active_workers,
+                    "requiredWorkers": required_workers,
+                    "hasWorkerDeficit":
+                        workforce_analysis["has_deficit"],
+                    "workerGap":
+                        workforce_analysis["worker_gap"],
+                    "workerMessage":
+                        workforce_analysis["message"],
+                    "remainingCrates":
+                        remaining_crates,
+                    "estimatedRemainingHours":
+                        remaining_harvest_hours,
+                    "riskStatus":
+                        completion_risk["status"],
+                    "isAtRisk":
+                        completion_risk["is_at_risk"],
+                    "timeBufferHours":
+                        completion_risk["time_buffer_hours"],
+                    "riskMessage":
+                        completion_risk["message"],
+                    "modelSource":
+                        "models.optimisation_model (predict_block_completion_risk, evaluate_workforce_deficit, calculate_required_workers)"
+                }                
             
             },
             

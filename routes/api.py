@@ -14,12 +14,10 @@ DB_PATH = os.getenv(
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "smartharvest.db"),
 )
 
-
 def get_db():
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     return conn
-
 
 try:
     from zoneinfo import ZoneInfo
@@ -28,25 +26,20 @@ except Exception:  # tz database missing: fall back to UTC+2
     from datetime import timezone, timedelta
     _TZ = timezone(timedelta(hours=2))
 
-
 def _now():
     return datetime.now(_TZ)
-
 
 def today():
     return _now().strftime("%Y-%m-%d")
 
-
 def now_time():
     return _now().strftime("%H:%M")
-
 
 def when(data):
     """Date/time from the form, or South African 'now' if left empty."""
     day = data.get("DateHarvested") or today()
     time = data.get("TimeHarvested") or data.get("time") or now_time()
     return day, str(time)[:5]
-
 
 def init_db():
     conn = get_db()
@@ -89,9 +82,7 @@ def init_db():
         conn.commit()
     conn.close()
 
-
 init_db()
-
 
 def hours_between(start, end):
     try:
@@ -101,20 +92,17 @@ def hours_between(start, end):
     except Exception:
         return None
 
-
 def to_int(value, default=0):
     try:
         return int(float(value))
     except (TypeError, ValueError):
         return default
 
-
 def pick(data, *keys, default=None):
     for k in keys:
         if data.get(k) not in (None, ""):
             return data[k]
     return default
-
 
 def norm_block(value):
     """'Block1' -> 'Block 1'"""
@@ -144,6 +132,7 @@ def get_dashboard_data():
             FROM teams t LEFT JOIN harvests h ON h.team_id = t.id
             WHERE t.date = ? {bf}
             GROUP BY t.id ORDER BY t.clock_in""", [date_param] + bp).fetchall()
+        
         shift_overview = [{
             "start": r["clock_in"], "end": r["clock_out"] or "--:--",
             "hours": hours_between(r["clock_in"], r["clock_out"]),
@@ -155,11 +144,13 @@ def get_dashboard_data():
             SELECT h.time, t.leader, t.block, t.workers, h.crates, h.trees, h.rejected
             FROM harvests h JOIN teams t ON t.id = h.team_id
             WHERE h.date = ? {bf} ORDER BY h.time""", [date_param] + bp).fetchall()
+        
         operations = [dict(r) for r in rows]
 
         bf2 = " AND block = ?" if block_name else ""
         rows = conn.execute(
             f"SELECT * FROM logistics WHERE date = ? {bf2} ORDER BY time", [date_param] + bp).fetchall()
+        
         logistics = [{
             "time": r["time"], "trip": r["trip"], "vehicle": r["vehicle"],
             "registration": r["registration"], "driver": r["driver"],
@@ -169,6 +160,7 @@ def get_dashboard_data():
         rows = conn.execute(
             f"SELECT * FROM notes WHERE date = ? {bf2} ORDER BY time DESC, id DESC",
             [date_param] + bp).fetchall()
+        
         notes = [{"endCrates": r["end_crates"], "delays": r["delays"], "remarks": r["remarks"]}
                  for r in rows]
 
@@ -176,71 +168,48 @@ def get_dashboard_data():
         loaded = sum(r["loaded"] or 0 for r in logistics)
         awaiting = max(harvested - loaded, 0)
 
-        # 
-        # SUPPLY CHAIN MODEL INTEGRATION
-        # Harvest Rate (crates/hour)
-        # 
-        
-        total_labor_hours = sum(
-            r["hours"] or 0.0
-            for r in shift_overview
-        )
+        # Supply Chain Model Integration
+        total_labor_hours = sum(r["hours"] or 0.0 for r in shift_overview)
         
         if total_labor_hours > 0:
-            harvest_rate = round(
-                calculate_harvest_rate(
-                    float(harvested),
-                    float(total_labor_hours)
-                ),
-                2
-            )
+            harvest_rate = round(calculate_harvest_rate(float(harvested), float(total_labor_hours)), 2)
         else:
             harvest_rate = 0.0
 
-        
         shift_end = notes[0]["endCrates"] if notes else awaiting
 
-        totals = {"Pack house": 0, "Farm shed": 0, "Other": 0}
+        # FIXED: Using a single dictionary to track destinations
+        dest_counts = {"Pack house": 0, "Farm shed": 0, "Other": 0}
         for r in logistics:
-            key = r["destination"] if r["destination"] in totals else "Other"
-            totals[key] += r["delivered"] or 0
+            key = r["destination"] if r["destination"] in dest_counts else "Other"
+            dest_counts[key] += r["delivered"] or 0
 
-    
-    return jsonify({
-        # 1. Existing KPIs + Safe Injected Model Metric
-        "kpis": {
-            "harvestedToday": harvested,
-            "awaitingTransport": awaiting,
-            "shiftEnd": shift_end,
-            "harvestRate": harvest_rate  # Injected for dashboard KPI cards
-        },
-    
-        # 2. Rubric B3 Proof: Dedicated Supply Chain Analytics Block
-        "analytics": {
-            "harvestRate": {
-                "value": harvest_rate,
-                "unit": "crates/hour",
-                "totalHoursWorked": round(total_labor_hours, 2),
-                "modelSource": "models.harvest_model.calculate_harvest_rate"
-            }
-        },
-    
-        # 3. UNTOUCHED Chart Contracts (Required by dashboard.html)
-        "destinationValues": [
-            dest_counts["Pack house"],
-            dest_counts["Farm shed"],
-            dest_counts["Other"]
-        ],
-        "destinationLabels": ["Pack house", "Farm shed", "Other"],
-    
-        # 4. UNTOUCHED Table Data (Required by dashboard.html)
-        "shiftOverview": shift_overview,
-        "operations": operations,
-        "logistics": logistics,
-        "notes": notes
-    
-    }), 200
-
+        return jsonify({
+            "kpis": {
+                "harvestedToday": harvested,
+                "awaitingTransport": awaiting,
+                "shiftEnd": shift_end,
+                "harvestRate": harvest_rate
+            },
+            "analytics": {
+                "harvestRate": {
+                    "value": harvest_rate,
+                    "unit": "crates/hour",
+                    "totalHoursWorked": round(total_labor_hours, 2),
+                    "modelSource": "models.harvest_model.calculate_harvest_rate"
+                }
+            },
+            "destinationValues": [
+                dest_counts["Pack house"],
+                dest_counts["Farm shed"],
+                dest_counts["Other"]
+            ],
+            "destinationLabels": ["Pack house", "Farm shed", "Other"],
+            "shiftOverview": shift_overview,
+            "operations": operations,
+            "logistics": logistics,
+            "notes": notes
+        }), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

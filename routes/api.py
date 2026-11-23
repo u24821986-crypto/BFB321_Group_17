@@ -184,13 +184,36 @@ def get_dashboard_data():
             key = r["destination"] if r["destination"] in dest_counts else "Other"
             dest_counts[key] += r["delivered"] or 0
 
+        # 
+        # FORMAT CHARTS EXPECTED BY DASHBOARD.HTML
+        # 
+        # Build harvestChart data
+        harvest_chart_labels = [
+            f"{r.get('leader') or r.get('team', 'Team')} ({r.get('start', '')})"
+            for r in shift_overview
+        ]
+        harvest_chart_values = [r.get("crates", 0) for r in shift_overview]
+    
+        # Build destinationChart totals
+        dest_counts = {"Pack house": 0, "Farm shed": 0, "Other": 0}
+        for r in logistics:
+            dest = r.get("destination", "Other")
+            key = dest if dest in dest_counts else "Other"
+            dest_counts[key] += r.get("delivered") or r.get("loaded") or 0
+    
+        # 
+        # RETURN COMPLETE JSON PAYLOAD
+        # 
         return jsonify({
+            # Standard KPIs + Injected Step 2 Harvest Rate
             "kpis": {
                 "harvestedToday": harvested,
                 "awaitingTransport": awaiting,
                 "shiftEnd": shift_end,
                 "harvestRate": harvest_rate
             },
+    
+            # Step 2 Analytical Evidence (Rubric B3)
             "analytics": {
                 "harvestRate": {
                     "value": harvest_rate,
@@ -199,12 +222,22 @@ def get_dashboard_data():
                     "modelSource": "models.harvest_model.calculate_harvest_rate"
                 }
             },
-            "destinationValues": [
-                dest_counts["Pack house"],
-                dest_counts["Farm shed"],
-                dest_counts["Other"]
-            ],
-            "destinationLabels": ["Pack house", "Farm shed", "Other"],
+    
+            # REQUIRED BY DASHBOARD.HTML (fixes the crash):
+            "harvestChart": {
+                "labels": harvest_chart_labels,
+                "values": harvest_chart_values
+            },
+            "destinationChart": {
+                "labels": list(dest_counts.keys()),
+                "values": list(dest_counts.values())
+            },
+    
+            # Retain flat keys for backwards compatibility
+            "destinationLabels": list(dest_counts.keys()),
+            "destinationValues": list(dest_counts.values()),
+    
+            # Tables
             "shiftOverview": shift_overview,
             "operations": operations,
             "logistics": logistics,

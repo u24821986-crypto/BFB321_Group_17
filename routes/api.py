@@ -5,8 +5,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from models.harvest_model import calculate_harvest_rate
-from models.transport_model import evaluate_capacity_deficit
-
+from models.transport_model import evaluate_capacity_deficit, calculate_required_trips
 
 
 api_bp = Blueprint('api', __name__)
@@ -189,6 +188,11 @@ def get_dashboard_data():
             available_capacity=int(available_capacity)
         )
 
+        trips_required = calculate_required_trips(
+            projected_crates=int(awaiting),
+            vehicle_capacity=int(available_capacity)
+        )
+
 
         
 
@@ -238,12 +242,14 @@ def get_dashboard_data():
                     "modelSource": "models.harvest_model.calculate_harvest_rate"
                 },
                 "transportCapacity": {
+                    "availableCapacity": available_capacity,
+                    "cratesAwaiting": awaiting,
                     "hasDeficit": capacity_analysis["has_deficit"],
                     "capacityGap": capacity_analysis["capacity_gap"],
                     "message": capacity_analysis["message"],
-                    "availableCapacity": available_capacity,
-                    "modelSource": "models.transport_model.evaluate_capacity_deficit"
-                }
+                    "tripsRequired": trips_required,
+                    "modelSource": "models.transport_model.evaluate_capacity_deficit &amp; calculate_required_trips"
+                }            
             },
 
             # REQUIRED BY DASHBOARD.HTML (fixes the crash):

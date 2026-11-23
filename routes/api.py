@@ -4,8 +4,23 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from models.harvest_model import calculate_harvest_rate
-from models.transport_model import evaluate_capacity_deficit, calculate_required_trips
+
+
+from models.harvest_model import (
+    calculate_harvest_rate,
+    calculate_progress_percentage
+)
+
+from models.transport_model import (
+    evaluate_capacity_deficit,
+    calculate_required_trips,
+    calculate_vehicle_utilisation
+)
+
+from models.bottleneck_model import (
+    identify_constraint
+)
+
 
 
 api_bp = Blueprint('api', __name__)
@@ -193,7 +208,56 @@ def get_dashboard_data():
             vehicle_capacity=int(available_capacity)
         )
 
-
+        # 
+        # MODEL INTEGRATION: BOTTLENECK ANALYSIS
+        # 
+        
+        # 1. Vehicle Utilisation (%)
+        
+        vehicle_util = round(
+            calculate_vehicle_utilisation(
+                crates_loaded=max(0, int(loaded)),
+                vehicle_capacity=max(1, int(available_capacity))
+            ),
+            2
+        )
+        
+        # 2. Harvest Progress (%)
+        
+        # Rembander Specification:
+        # 500 trees per block
+        # 3500 trees across farm
+        
+        total_trees_harvested = sum(
+            r.get("trees", 0)
+            for r in shift_overview
+        )
+        
+        total_trees_target = (
+            500.0
+            if block_name
+            else 3500.0
+        )
+        
+        harvest_progress = round(
+            calculate_progress_percentage(
+                trees_harvested_per_day=float(
+                    total_trees_harvested
+                ),
+                total_trees_in_block=float(
+                    total_trees_target
+                )
+            ),
+            2
+        )
+        
+        # 3. Constraint Identification
+        
+        constraint_message = identify_constraint(
+            progress=float(harvest_progress),
+            utilisation=float(vehicle_util)
+        )
+        
         
 
         shift_end = notes[0]["endCrates"] if notes else awaiting
@@ -235,23 +299,50 @@ def get_dashboard_data():
     
             # Step 2 Analytical Evidence (Rubric B3)
             "analytics": {
+            
                 "harvestRate": {
                     "value": harvest_rate,
                     "unit": "crates/hour",
                     "totalHoursWorked": round(total_labor_hours, 2),
                     "modelSource": "models.harvest_model.calculate_harvest_rate"
                 },
+            
+                "harvestProgress": {
+                    "treesHarvested": total_trees_harvested,
+                    "targetTrees": total_trees_target,
+                    "progressPercentage": harvest_progress,
+                    "modelSource": "models.harvest_model.calculate_progress_percentage"
+                },
+            
                 "transportCapacity": {
                     "availableCapacity": available_capacity,
+                    "capacityGap": capacity_analysis["capacity_gap"],
                     "cratesAwaiting": awaiting,
                     "hasDeficit": capacity_analysis["has_deficit"],
-                    "capacityGap": capacity_analysis["capacity_gap"],
                     "message": capacity_analysis["message"],
                     "tripsRequired": trips_required,
-                    "modelSource": "models.transport_model.evaluate_capacity_deficit &amp; calculate_required_trips"
-                }            
+                    "utilisationPercentage": vehicle_util,
+                    "modelSource": "models.transport_model (evaluate_capacity_deficit, calculate_required_trips, calculate_vehicle_utilisation)"
+                },
+            
+                "bottleneckAnalysis": {
+                    "primaryConstraint": (
+                        "Labour"
+                        if "Labour" in constraint_message
+                        else (
+                            "Transport"
+                            if "Transport" in constraint_message
+                            else "Balanced"
+                        )
+                    ),
+                    "statusMessage": constraint_message,
+                    "harvestProgress": harvest_progress,
+                    "transportUtilisation": vehicle_util,
+                    "modelSource": "models.bottleneck_model.identify_constraint"
+                }
+            
             },
-
+            
             # REQUIRED BY DASHBOARD.HTML (fixes the crash):
             "harvestChart": {
                 "labels": harvest_chart_labels,

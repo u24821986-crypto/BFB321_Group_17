@@ -66,11 +66,9 @@ The frontend is a static web prototype built with HTML, CSS, and JavaScript. It 
 
 ---
 
-## Folder Structure
-
 BFB321_Project/
 │
-├── README.md                  # This file
+├── README.md                  # Main project documentation
 ├── .gitignore                 # Git ignore file
 ├── .env.example               # Environment variable template
 ├── requirements.txt           # Python dependencies
@@ -78,11 +76,21 @@ BFB321_Project/
 ├── app.py                     # Flask application entry point
 ├── Procfile                   # Deployment run command for Render
 │
+├── database/                  # Database scripts
+│   ├── README.md
+│   ├── mydb.sql
+│   └── schema.sql
+│
 ├── models/                    # Python logic files
 │   ├── bottleneck_model.py
 │   ├── harvest_model.py
 │   ├── optimisation_model.py
 │   └── transport_model.py
+│
+├── routes/                    # Flask API routes
+│   ├── __init__.py
+│   ├── api.py
+│   └── api_v2.py
 │
 ├── tests/                     # Unit tests for models
 │   ├── test_bottleneck_model.py
@@ -90,12 +98,11 @@ BFB321_Project/
 │   ├── test_optimisation_model.py
 │   └── test_transport_model.py
 │
-└── templates/                 # HTML files (Frontend prototype)
+└── templates/                 # HTML files (Frontend)
     ├── index.html
     ├── login.html
     ├── dashboard.html
     └── operations.html
-
 ## Project Status
 The current implementation includes:
 *   Harvest Management Model

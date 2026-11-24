@@ -1,16 +1,12 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Operations Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
-          rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .chart-container {
-            position: relative;
-            height: 320px;
-        }
+        .chart-container { position: relative; height: 320px; }
     </style>
 </head>
 
@@ -21,6 +17,10 @@
                 <p class="small text-warning text-uppercase fw-bold mb-1">Farm operations</p>
                 <h1 class="mb-1">Smart Dashboard</h1>
                 <p class="mb-0">View daily production performance across the farm.</p>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <a href="/operations" class="btn btn-warning fw-bold">Operations</a>
+                <a href="/" class="btn btn-outline-light fw-bold">Home</a>
             </div>
         </div>
     </header>
@@ -55,6 +55,7 @@
             </div>
         </form>
 
+        <!-- SECTION 1: KPI Cards -->
         <section class="mb-5" aria-labelledby="kpi-heading">
             <p class="small text-success text-uppercase fw-bold mb-1">Daily status</p>
             <h2 class="h3 mb-3" id="kpi-heading">Key Performance Indicators</h2>
@@ -84,20 +85,61 @@
                     </div>
                 </article>
                 <article class="col-md-4">
-                    <div class="card h-100 border-start border-5" id="shiftEndKpi">
+                    <div class="card h-100 border-start border-5 border-info">
                         <div class="card-body">
                             <div class="d-flex align-items-center justify-content-between gap-2">
-                                <h3 class="h5 mb-0">Crates at Shift End</h3>
-                                <span class="badge" id="shiftEndStatus" role="status"></span>
+                                <h3 class="h5 mb-0">Harvest Rate</h3>
+                                <span class="badge bg-info">Productivity</span>
                             </div>
-                            <p class="display-6 fw-bold my-3"><span id="shiftEndValue">--</span> <span class="fs-6 text-secondary">crates</span></p>
-                            <p class="text-secondary mb-0">Crates harvested but not transported</p>
+                            <p class="display-6 fw-bold my-3"><span id="harvestRateValue">--</span> <span class="fs-6 text-secondary">crates/hr</span></p>
+                            <p class="text-secondary mb-0">Overall field harvest rate</p>
+                        </div>
+                    </div>
+                </article>
+            </div>
+
+            <!-- Supply Chain Model KPIs (Issue 1 Fix) -->
+            <div class="row g-3 mt-3">
+                <article class="col-md-4">
+                    <div class="card h-100 border-start border-5 border-danger">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <h3 class="h5 mb-0">Rejection Rate</h3>
+                                <span class="badge bg-danger">Quality</span>
+                            </div>
+                            <p class="display-6 fw-bold my-3"><span id="rejectionRateValue">--</span> <span class="fs-6 text-secondary">%</span></p>
+                            <p class="text-secondary mb-0">Crates rejected during inspection</p>
+                        </div>
+                    </div>
+                </article>
+                <article class="col-md-4">
+                    <div class="card h-100 border-start border-5 border-warning">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <h3 class="h5 mb-0">Vehicle Utilisation</h3>
+                                <span class="badge bg-warning text-dark">Capacity</span>
+                            </div>
+                            <p class="display-6 fw-bold my-3"><span id="utilisationValue">--</span> <span class="fs-6 text-secondary">%</span></p>
+                            <p class="text-secondary mb-0">Average vehicle capacity used</p>
+                        </div>
+                    </div>
+                </article>
+                <article class="col-md-4">
+                    <div class="card h-100 border-start border-5" id="bottleneckCard">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                                <h3 class="h5 mb-0">Bottleneck Status</h3>
+                                <span class="badge bg-secondary" id="bottleneckStatus">Analyzing</span>
+                            </div>
+                            <p class="fs-5 fw-bold my-3" id="cutoffStatus">Cut-off: --</p>
+                            <p class="text-secondary mb-0" id="bottleneckMessage">Calculating...</p>
                         </div>
                     </div>
                 </article>
             </div>
         </section>
 
+        <!-- SECTION 2: Charts -->
         <section class="mb-5" aria-labelledby="charts-heading">
             <p class="small text-success text-uppercase fw-bold mb-1">Production overview</p>
             <h2 class="h3 mb-3" id="charts-heading">Harvest &amp; Logistics</h2>
@@ -106,11 +148,7 @@
                     <div class="card h-100 shadow-sm">
                         <div class="card-body">
                             <h3 class="h5">Crates Harvested by Team</h3>
-                            <p class="text-secondary">Based on the Shift Overview table</p>
-                            <div class="chart-container">
-                                <canvas id="harvestChart" role="img"
-                                aria-label="Bar chart showing crates harvested by team from the Shift Overview table"></canvas>
-                            </div>
+                            <div class="chart-container"><canvas id="harvestChart"></canvas></div>
                         </div>
                     </div>
                 </article>
@@ -118,33 +156,23 @@
                     <div class="card h-100 shadow-sm">
                         <div class="card-body">
                             <h3 class="h5">Crates by Destination</h3>
-                            <p class="text-secondary">Based on delivered crates in the Logistics Management table</p>
-                            <div class="chart-container">
-                                <canvas id="destinationChart" role="img"
-                                aria-label="Doughnut chart of delivered crates by destination from the Logistics Management table"></canvas>
-                            </div>
+                            <div class="chart-container"><canvas id="destinationChart"></canvas></div>
                         </div>
                     </div>
                 </article>
             </div>
         </section>
 
-        <section class="mb-5" aria-labelledby="shift-table-heading">
-            <h2 class="h3 mb-3" id="shift-table-heading">Shift Overview</h2>
+        <!-- SECTION 3: Tables -->
+        <section class="mb-5">
+            <h2 class="h3 mb-3">Shift Overview</h2>
             <div class="card rounded-3 overflow-hidden shadow-sm">
                 <div class="table-responsive">
                     <table id="shiftOverviewTable" class="table table-bordered table-striped align-middle mb-0">
                         <thead class="table-success">
                             <tr>
-                                <th scope="col">Shift Start</th>
-                                <th scope="col">Shift End</th>
-                                <th scope="col">Hours Worked</th>
-                                <th scope="col">Team Leader</th>
-                                <th scope="col">Operation Location</th>
-                                <th scope="col">Number of workers</th>
-                                <th scope="col">Total Crates Harvested</th>
-                                <th scope="col">Total Rejected Crates</th>
-                                <th scope="col">Number of Trees</th>
+                                <th>Shift Start</th><th>Shift End</th><th>Hours Worked</th><th>Team Leader</th>
+                                <th>Operation Location</th><th>Workers</th><th>Crates Harvested</th><th>Rejected</th><th>Trees</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -153,20 +181,15 @@
             </div>
         </section>
 
-        <section class="mb-5" aria-labelledby="operations-table-heading">
-            <h2 class="h3 mb-3" id="operations-table-heading">Operations Management</h2>
+        <section class="mb-5">
+            <h2 class="h3 mb-3">Operations Management</h2>
             <div class="card rounded-3 overflow-hidden shadow-sm">
                 <div class="table-responsive">
                     <table id="operationsTable" class="table table-bordered table-striped align-middle mb-0">
                         <thead class="table-success">
                             <tr>
-                                <th scope="col">Time</th>
-                                <th scope="col">Team Leader</th>
-                                <th scope="col">Operation Location</th>
-                                <th scope="col">Number of Workers</th>
-                                <th scope="col">Crates Harvested</th>
-                                <th scope="col">Number of Trees</th>
-                                <th scope="col">Rejected Crates</th>
+                                <th>Time</th><th>Team Leader</th><th>Block</th><th>Workers</th>
+                                <th>Crates Harvested</th><th>Trees</th><th>Rejected</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -175,21 +198,15 @@
             </div>
         </section>
 
-        <section class="mb-5" aria-labelledby="logistics-table-heading">
-            <h2 class="h3 mb-3" id="logistics-table-heading">Logistics Management</h2>
+        <section class="mb-5">
+            <h2 class="h3 mb-3">Logistics Management</h2>
             <div class="card rounded-3 overflow-hidden shadow-sm">
                 <div class="table-responsive">
                     <table id="logisticsOverviewTable" class="table table-bordered table-striped align-middle mb-0">
                         <thead class="table-success">
                             <tr>
-                                <th scope="col">Time</th>
-                                <th scope="col">Trip Number</th>
-                                <th scope="col">Vehicle Type</th>
-                                <th scope="col">Vehicle Registration Number</th>
-                                <th scope="col">Driver Name</th>
-                                <th scope="col">Destination</th>
-                                <th scope="col">Number of Crates Initially Loaded</th>
-                                <th scope="col">Number of Crates at Destination</th>
+                                <th>Time</th><th>Trip</th><th>Vehicle</th><th>Registration</th>
+                                <th>Driver</th><th>Destination</th><th>Loaded</th><th>Delivered</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -198,17 +215,13 @@
             </div>
         </section>
 
-        <section class="mb-5" aria-labelledby="operational-notes-heading">
-            <h2 class="h3 mb-3" id="operational-notes-heading">Operational Notes</h2>
+        <section class="mb-5">
+            <h2 class="h3 mb-3">Operational Notes</h2>
             <div class="card rounded-3 overflow-hidden shadow-sm">
                 <div class="table-responsive">
                     <table id="notesTable" class="table table-bordered table-striped align-middle mb-0">
                         <thead class="table-success">
-                            <tr>
-                                <th scope="col">Total Crates at End of Shift</th>
-                                <th scope="col">Delays</th>
-                                <th scope="col">Additional Notes</th>
-                            </tr>
+                            <tr><th>End Shift Crates</th><th>Delays</th><th>Remarks</th></tr>
                         </thead>
                         <tbody></tbody>
                     </table>
@@ -221,276 +234,25 @@
     <script>
         const farmGreen = "#005333";
         const farmGold = "#f9d000";
-        const TICK_MS = 5000;
-        const SERVER_RETRY_MS = 15000;
-        const SAMPLE_INTERVAL_MS = 10 * 60 * 1000; // new sample data every 10 minutes
-        let lastSampleAt = Date.now();
-        const API_BASE = location.protocol === "file:" ? "http://localhost:5000" : "";
+        const TICK_MS = 15000;
+        const API_BASE = "";
 
         const pad = (n) => String(n).padStart(2, "0");
         const toDateString = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-        const nowTime = () => {
-            const d = new Date();
-            return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        };
-        const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-        const pick = (list) => list[randInt(0, list.length - 1)];
-
-        const todayString = toDateString(new Date());
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayString = toDateString(yesterday);
-
-        const demo = { teams: [], harvests: [], trips: [], notes: [], tick: 0 };
-        const vehicles = [
-            { type: "Tractor", registration: "XYZ-123" },
-            { type: "Truck", registration: "ABC-456" },
-            { type: "Truck", registration: "JKL-901" },
-            { type: "Bakkie", registration: "PMG-123" }
-        ];
-        const drivers = ["John Doe", "Jane Smith", "Chantel Davis", "Mike Johnson"];
-        const destinations = ["Pack house", "Farm shed", "Other"];
-        const delayOptions = ["", "", "Tractor breakdown 30 min", "Rain delay 20 min", "Waiting for crates"];
-
-        function addTeam(id, date, start, end, leader, block, workers) {
-            demo.teams.push({ id, date, start, end, leader, block, workers });
-        }
-
-        function addHarvest(teamId, date, time, crates, trees, rejected) {
-            demo.harvests.push({ teamId, date, time, crates, trees, rejected });
-        }
-
-        function addTrip(date, time, block, vehicle, driver, destination, loaded, delivered) {
-            const trip = demo.trips.filter((t) => t.date === date && t.block === block).length + 1;
-            demo.trips.push({
-                date, time, block, trip, vehicle: vehicle.type, registration: vehicle.registration,
-                driver, destination, loaded, delivered
-            });
-        }
-
-        function upsertNote(date, block, endCrates, delays, remarks) {
-            const existing = demo.notes.find((n) => n.date === date && n.block === block);
-            if (existing) {
-                existing.time = nowTime();
-                existing.endCrates = endCrates;
-                if (delays !== null) existing.delays = delays;
-                return;
-            }
-            demo.notes.push({ date, block, time: nowTime(), endCrates, delays: delays || "", remarks: remarks || "" });
-        }
-
-        function seedDemo() {
-            addTeam(1, todayString, "04:30", "12:30", "John Doe", "Block 1", 5);
-            addTeam(2, todayString, "05:10", null, "Jane Smith", "Block 1", 8);
-            addTeam(3, todayString, "05:55", null, "Mike Johnson", "Block 2", 6);
-            addTeam(4, todayString, "06:20", null, "Chantel Davis", "Block 3", 7);
-            addTeam(5, yesterdayString, "04:30", "16:30", "John Doe", "Block 1", 5);
-            addTeam(6, yesterdayString, "05:10", "15:10", "Jane Smith", "Block 2", 8);
-
-            addHarvest(1, todayString, "04:30", 100, 20, 5);
-            addHarvest(2, todayString, "08:30", 150, 25, 10);
-            addHarvest(3, todayString, "10:20", 120, 22, 8);
-            addHarvest(4, todayString, "10:45", 60, 12, 3);
-            addHarvest(5, yesterdayString, "09:00", 140, 24, 6);
-            addHarvest(5, yesterdayString, "13:30", 110, 20, 4);
-            addHarvest(6, yesterdayString, "10:15", 160, 28, 9);
-
-            addTrip(todayString, "08:47", "Block 1", vehicles[0], "John Doe", "Pack house", 100, 80);
-            addTrip(todayString, "09:00", "Block 1", vehicles[1], "Jane Smith", "Farm shed", 60, 55);
-            addTrip(todayString, "11:09", "Block 2", vehicles[2], "Chantel Davis", "Pack house", 100, 92);
-            addTrip(yesterdayString, "11:00", "Block 1", vehicles[0], "John Doe", "Pack house", 250, 240);
-            addTrip(yesterdayString, "14:00", "Block 2", vehicles[1], "Jane Smith", "Farm shed", 160, 150);
-
-            demo.notes.push({ date: todayString, block: "Block 1", time: "10:00", endCrates: 90, delays: "Tractor breakdown 30 min", remarks: "Heavy rainfall expected tomorrow" });
-            demo.notes.push({ date: yesterdayString, block: "Block 1", time: "16:00", endCrates: 10, delays: "", remarks: "All crates cleared" });
-        }
-
-        function blockHarvested(date, block) {
-            const teamIds = demo.teams.filter((t) => t.date === date && t.block === block).map((t) => t.id);
-            return demo.harvests
-                .filter((h) => h.date === date && teamIds.includes(h.teamId))
-                .reduce((sum, h) => sum + h.crates, 0);
-        }
-
-        function blockLoaded(date, block) {
-            return demo.trips
-                .filter((t) => t.date === date && t.block === block)
-                .reduce((sum, t) => sum + t.loaded, 0);
-        }
-
-        function simulateActivity() {
-            // Only generate new sample data once every 10 minutes
-            if (Date.now() - lastSampleAt < SAMPLE_INTERVAL_MS) return;
-            lastSampleAt = Date.now();
-            demo.tick += 1;
-            const activeTeams = demo.teams.filter((t) => t.date === todayString && !t.end);
-            const pool = activeTeams.length ? activeTeams : demo.teams.filter((t) => t.date === todayString);
-            if (!pool.length) return;
-
-            const team = pick(pool);
-            addHarvest(team.id, todayString, nowTime(), randInt(8, 30), randInt(2, 8), randInt(0, 4));
-
-            if (demo.tick % 3 === 0) {
-                const block = pick([...new Set(pool.map((t) => t.block))]);
-                const available = blockHarvested(todayString, block) - blockLoaded(todayString, block);
-                if (available > 0) {
-                    const loaded = Math.min(available, randInt(40, 90));
-                    const delivered = Math.max(loaded - randInt(0, 8), 0);
-                    addTrip(todayString, nowTime(), block, pick(vehicles), pick(drivers), pick(destinations), loaded, delivered);
-                }
-                const remaining = Math.max(blockHarvested(todayString, block) - blockLoaded(todayString, block), 0);
-                upsertNote(todayString, block, remaining, pick(delayOptions), "");
-            }
-        }
-
-        function hoursBetween(start, end) {
-            if (!end) return null;
-            const [sh, sm] = start.split(":").map(Number);
-            const [eh, em] = end.split(":").map(Number);
-            return Math.round(((eh * 60 + em) - (sh * 60 + sm)) / 6) / 10;
-        }
-
-        function buildDemoData(blockValue, date) {
-            const blockName = blockValue === "all" ? null : `Block ${blockValue.replace(/\D/g, "")}`;
-            const matchesBlock = (b) => !blockName || b === blockName;
-
-            const teams = demo.teams
-                .filter((t) => t.date === date && matchesBlock(t.block))
-                .sort((a, b) => a.start.localeCompare(b.start));
-            const teamIds = teams.map((t) => t.id);
-            const harvests = demo.harvests
-                .filter((h) => h.date === date && teamIds.includes(h.teamId))
-                .sort((a, b) => a.time.localeCompare(b.time));
-            const trips = demo.trips
-                .filter((t) => t.date === date && matchesBlock(t.block))
-                .sort((a, b) => a.time.localeCompare(b.time));
-            const notes = demo.notes
-                .filter((n) => n.date === date && matchesBlock(n.block))
-                .sort((a, b) => b.time.localeCompare(a.time));
-
-            const shiftOverview = teams.map((t) => {
-                const entries = harvests.filter((h) => h.teamId === t.id);
-                return {
-                    start: t.start,
-                    end: t.end || "--:--",
-                    hours: hoursBetween(t.start, t.end),
-                    leader: t.leader,
-                    block: t.block,
-                    workers: t.workers,
-                    crates: entries.reduce((s, h) => s + h.crates, 0),
-                    rejected: entries.reduce((s, h) => s + h.rejected, 0),
-                    trees: entries.reduce((s, h) => s + h.trees, 0)
-                };
-            });
-
-            const operations = harvests.map((h) => {
-                const t = teams.find((x) => x.id === h.teamId);
-                return {
-                    time: h.time, leader: t.leader, block: t.block, workers: t.workers,
-                    crates: h.crates, trees: h.trees, rejected: h.rejected
-                };
-            });
-
-            const logistics = trips.map((t) => ({
-                time: t.time, trip: t.trip, vehicle: t.vehicle, registration: t.registration,
-                driver: t.driver, destination: t.destination, loaded: t.loaded, delivered: t.delivered
-            }));
-
-            const harvested = shiftOverview.reduce((s, r) => s + r.crates, 0);
-            const loaded = trips.reduce((s, t) => s + t.loaded, 0);
-            const awaiting = Math.max(harvested - loaded, 0);
-            const shiftEnd = notes.length ? notes[0].endCrates : awaiting;
-
-            const destinationTotals = { "Pack house": 0, "Farm shed": 0, "Other": 0 };
-            trips.forEach((t) => {
-                const key = t.destination in destinationTotals ? t.destination : "Other";
-                destinationTotals[key] += t.delivered;
-            });
-
-            return {
-                kpis: { harvestedToday: harvested, awaitingTransport: awaiting, shiftEnd: shiftEnd },
-                harvestChart: {
-                    labels: shiftOverview.map((s) => `${s.leader} (${s.start})`),
-                    values: shiftOverview.map((s) => s.crates)
-                },
-                destinationChart: {
-                    labels: Object.keys(destinationTotals),
-                    values: Object.values(destinationTotals)
-                },
-                shiftOverview,
-                operations,
-                logistics,
-                notes: notes.map((n) => ({ endCrates: n.endCrates, delays: n.delays, remarks: n.remarks }))
-            };
-        }
-
         const dateInput = document.getElementById("DateHarvested");
         const blockSelect = document.getElementById("productionBlock");
-        dateInput.value = todayString;
+        dateInput.value = toDateString(new Date());
 
         const harvestChart = new Chart(document.getElementById("harvestChart"), {
             type: "bar",
-            data: {
-                labels: [],
-                datasets: [{
-                    label: "Crates harvested",
-                    data: [],
-                    borderColor: farmGreen,
-                    backgroundColor: farmGreen,
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                indexAxis: "y",
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { label: (c) => `${c.parsed.x} crates` } }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        title: { display: true, text: "Crates" },
-                        grid: { color: "rgba(0, 83, 51, 0.08)" }
-                    },
-                    y: { grid: { display: false } }
-                }
-            }
+            data: { labels: [], datasets: [{ label: "Crates", data: [], backgroundColor: farmGreen }] },
+            options: { responsive: true, maintainAspectRatio: false, indexAxis: "y" }
         });
 
         const destinationChart = new Chart(document.getElementById("destinationChart"), {
             type: "doughnut",
-            data: {
-                labels: ["Pack house", "Farm shed", "Other"],
-                datasets: [{
-                    data: [0, 0, 0],
-                    backgroundColor: [farmGreen, farmGold, "#83b899"],
-                    borderColor: "#ffffff",
-                    borderWidth: 3,
-                    hoverOffset: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: "62%",
-                plugins: {
-                    legend: {
-                        position: "bottom",
-                        labels: { usePointStyle: true, padding: 20 }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: (c) => {
-                                const total = c.dataset.data.reduce((a, b) => a + b, 0);
-                                const pct = total ? (c.parsed / total * 100).toFixed(1) : "0.0";
-                                return `${c.label}: ${c.parsed} crates (${pct}%)`;
-                            }
-                        }
-                    }
-                }
-            }
+            data: { labels: ["Pack house", "Farm shed", "Other"], datasets: [{ data: [0, 0, 0], backgroundColor: [farmGreen, farmGold, "#83b899"] }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: "62%" }
         });
 
         function updateKpi(cardId, valueId, statusId, value, isBottleneck) {
@@ -498,17 +260,21 @@
             const status = document.getElementById(statusId);
             const tone = isBottleneck ? "danger" : "success";
             document.getElementById(valueId).textContent = Number(value).toLocaleString();
-            card.classList.remove("border-success", "bg-success-subtle", "border-danger", "bg-danger-subtle");
-            card.classList.add(`border-${tone}`, `bg-${tone}-subtle`);
-            status.classList.remove("bg-success", "bg-danger");
-            status.classList.add(`bg-${tone}`);
-            status.textContent = isBottleneck ? "Bottleneck" : "On track";
+            if(card) {
+                card.classList.remove("border-success", "bg-success-subtle", "border-danger", "bg-danger-subtle");
+                card.classList.add(`border-${tone}`, `bg-${tone}-subtle`);
+            }
+            if(status) {
+                status.classList.remove("bg-success", "bg-danger");
+                status.classList.add(`bg-${tone}`);
+                status.textContent = isBottleneck ? "Bottleneck" : "On track";
+            }
         }
 
         function fillTable(tableId, rows, columns, emptyText) {
             const body = document.querySelector(`#${tableId} tbody`);
             body.replaceChildren();
-            if (!rows.length) {
+            if (!rows || !rows.length) {
                 const tr = body.insertRow();
                 const td = tr.insertCell();
                 td.colSpan = columns.length;
@@ -529,36 +295,44 @@
             const k = data.kpis;
             updateKpi("harvestKpi", "harvestValue", "harvestStatus", k.harvestedToday, k.harvestedToday < 100);
             updateKpi("transportKpi", "transportValue", "transportStatus", k.awaitingTransport, k.awaitingTransport > 0);
-            updateKpi("shiftEndKpi", "shiftEndValue", "shiftEndStatus", k.shiftEnd, k.shiftEnd > 0);
+            
+            if (data.model_kpis) {
+                document.getElementById("harvestRateValue").textContent = Number(data.model_kpis.harvest_rate).toFixed(2);
+                document.getElementById("rejectionRateValue").textContent = Number(data.model_kpis.rejection_rate).toFixed(1);
+                document.getElementById("utilisationValue").textContent = Number(data.model_kpis.vehicle_utilisation).toFixed(1);
+                document.getElementById("bottleneckStatus").textContent = data.model_kpis.bottleneck;
+                
+                const cutoffEl = document.getElementById("cutoffStatus");
+                cutoffEl.textContent = `Cut-off: ${data.model_kpis.cutoff_status}`;
+                document.getElementById("bottleneckMessage").textContent = data.model_kpis.cutoff_message;
+                
+                cutoffEl.className = "fs-5 fw-bold my-3";
+                if (data.model_kpis.cutoff_status === "RED") cutoffEl.classList.add("text-danger");
+                else if (data.model_kpis.cutoff_status === "AMBER") cutoffEl.classList.add("text-warning");
+                else cutoffEl.classList.add("text-success");
+            }
 
-            harvestChart.data.labels = data.harvestChart.labels;
-            harvestChart.data.datasets[0].data = data.harvestChart.values;
-            harvestChart.update();
+            if (data.harvestChart) {
+                harvestChart.data.labels = data.harvestChart.labels;
+                harvestChart.data.datasets[0].data = data.harvestChart.values;
+                harvestChart.update();
+            }
+            if (data.destinationChart) {
+                destinationChart.data.labels = data.destinationChart.labels;
+                destinationChart.data.datasets[0].data = data.destinationChart.values;
+                destinationChart.update();
+            }
 
-            destinationChart.data.labels = data.destinationChart.labels;
-            destinationChart.data.datasets[0].data = data.destinationChart.values;
-            destinationChart.update();
-
-            fillTable("shiftOverviewTable", data.shiftOverview,
-                ["start", "end", (r) => r.hours ?? "-", "leader", "block", "workers", "crates", "rejected", "trees"],
-                "No shifts recorded for this selection.");
-            fillTable("operationsTable", data.operations,
-                ["time", "leader", "block", "workers", "crates", "trees", "rejected"],
-                "No harvest entries for this selection.");
-            fillTable("logisticsOverviewTable", data.logistics,
-                ["time", "trip", "vehicle", "registration", "driver", "destination", "loaded", "delivered"],
-                "No trips recorded for this selection.");
-            fillTable("notesTable", data.notes,
-                ["endCrates", "delays", "remarks"],
-                "No operational notes for this selection.");
+            fillTable("shiftOverviewTable", data.shiftOverview, ["start", "end", (r) => r.hours ?? "-", "leader", "block", "workers", "crates", "rejected", "trees"], "No shifts recorded.");
+            fillTable("operationsTable", data.operations, ["time", "leader", "block", "workers", "crates", "trees", "rejected"], "No operations recorded.");
+            fillTable("logisticsOverviewTable", data.logistics, ["time", "trip", "vehicle", "registration", "driver", "destination", "loaded", "delivered"], "No trips recorded.");
+            fillTable("notesTable", data.notes, ["endCrates", "delays", "remarks"], "No notes recorded.");
         }
 
         const errorBanner = document.getElementById("errorBanner");
         const liveDot = document.getElementById("liveDot");
         const lastUpdated = document.getElementById("lastUpdated");
         let inFlight = false;
-        let serverIsLive = false;
-        let lastServerTry = 0;
 
         function showLive() {
             errorBanner.classList.add("d-none");
@@ -567,63 +341,42 @@
             lastUpdated.textContent = `Updated ${new Date().toLocaleTimeString()}`;
         }
 
-        function showDemo() {
-            errorBanner.textContent = "The server is not reachable, so simulated sample data is being shown and refreshes every 10 minutes. The dashboard switches to live data automatically once the server is running.";
+        function showError(error) {
+            errorBanner.textContent = `Could not load dashboard data: ${error.message}`;
             errorBanner.classList.remove("d-none");
-            liveDot.className = "badge rounded-pill text-bg-warning";
-            liveDot.textContent = "Sample data";
-            lastUpdated.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+            liveDot.className = "badge rounded-pill text-bg-danger";
+            liveDot.textContent = "Offline";
         }
 
         async function fetchFromServer() {
             const params = new URLSearchParams({ block: blockSelect.value, date: dateInput.value });
             const response = await fetch(`${API_BASE}/api/dashboard?${params}`, { cache: "no-store" });
-            const data = await response.json();
+            let data;
+            try { data = JSON.parse(await response.text()); } catch (e) { throw new Error(`Server error`); }
             if (!response.ok) throw new Error(data.error || `Server returned ${response.status}`);
             return data;
         }
 
-        async function loadDashboardData(force) {
+        async function loadDashboardData() {
             if (inFlight) return;
             inFlight = true;
             try {
-                const due = Date.now() - lastServerTry >= SERVER_RETRY_MS;
-                if (serverIsLive || due || force) {
-                    lastServerTry = Date.now();
-                    try {
-                        const data = await fetchFromServer();
-                        serverIsLive = true;
-                        render(data);
-                        showLive();
-                        return;
-                    } catch (error) {
-                        serverIsLive = false;
-                    }
-                }
-                simulateActivity();
-                render(buildDemoData(blockSelect.value, dateInput.value));
-                showDemo();
+                render(await fetchFromServer());
+                showLive();
+            } catch (error) {
+                showError(error);
             } finally {
                 inFlight = false;
             }
         }
 
-        document.getElementById("filterForm").addEventListener("submit", (e) => {
-            e.preventDefault();
-            loadDashboardData(true);
-        });
-        blockSelect.addEventListener("change", () => loadDashboardData(true));
-        dateInput.addEventListener("change", () => loadDashboardData(true));
+        document.getElementById("filterForm").addEventListener("submit", (e) => { e.preventDefault(); loadDashboardData(); });
+        blockSelect.addEventListener("change", () => loadDashboardData());
+        dateInput.addEventListener("change", () => loadDashboardData());
+        setInterval(() => { if (!document.hidden) loadDashboardData(); }, TICK_MS);
+        document.addEventListener("visibilitychange", () => { if (!document.hidden) loadDashboardData(); });
 
-        setInterval(() => { if (!document.hidden) loadDashboardData(false); }, TICK_MS);
-        document.addEventListener("visibilitychange", () => { if (!document.hidden) loadDashboardData(true); });
-
-        // Keep the free Render server awake while this page is open
-        // (it goes to sleep, and loses saved data, after 15 idle minutes).
-        setInterval(() => { fetch("/health", { cache: "no-store" }).catch(() => {}); }, 4 * 60 * 1000);
-
-        seedDemo();
-        loadDashboardData(true);
+        loadDashboardData();
     </script>
 </body>
 </html>

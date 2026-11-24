@@ -6,10 +6,14 @@ from urllib.parse import unquote, urlparse
 from flask import Blueprint, jsonify, request
 import pymysql
 
+# --- ISSUE 1 FIX: IMPORT THE SUPPLY CHAIN MODELS ---
+from models.harvest_model import calculate_harvest_rate, calculate_crate_rejection_rate
+from models.transport_model import calculate_vehicle_utilisation, predict_cutoff_breach
+from models.bottleneck_model import classify_bottleneck
+
 # Create a blueprint for the API
 api_bp = Blueprint('api', __name__)
 logger = logging.getLogger(__name__)
-
 
 def get_db_connection():
     """Use DATABASE_URL (set in Render) when present, otherwise your local MySQL."""
@@ -24,20 +28,16 @@ def get_db_connection():
         settings["ssl"] = {"fake_flag_to_enable_tls": True}
     return pymysql.connect(cursorclass=pymysql.cursors.DictCursor, **settings)
 
-
 # ---------- small helpers ----------
 def fail(message, code=400):
     return jsonify({"error": message, "message": message}), code
-
 
 def clean_block(value):
     """'Block1' or 'Block 1' -> 'Block 1' (the database value)."""
     return "Block " + "".join(c for c in (value or "") if c.isdigit())
 
-
 def clean_destination(value):
     return {"PackHouse": "Pack house", "FarmShed": "Farm shed"}.get(value, value or "Other")
-
 
 def hhmm(t):
     if t is None:
@@ -45,13 +45,11 @@ def hhmm(t):
     secs = int(t.total_seconds()) if isinstance(t, timedelta) else t.hour * 3600 + t.minute * 60
     return f"{secs // 3600:02d}:{secs % 3600 // 60:02d}"
 
-
 def hours_between(start, end):
     if not start or not end:
         return None
     (sh, sm), (eh, em) = [map(int, x.split(":")) for x in (start, end)]
     return round(((eh * 60 + em) - (sh * 60 + sm)) / 60, 1)
-
 
 def get_date_time_id(cursor, day, time):
     cursor.execute("SELECT date_time_id FROM date_time WHERE `date`=%s AND `time`=%s", (day, time))
@@ -61,7 +59,6 @@ def get_date_time_id(cursor, day, time):
     cursor.execute("INSERT INTO date_time (`date`, `time`) VALUES (%s, %s)", (day, time))
     return cursor.lastrowid
 
-
 def get_person_id(cursor, name):
     name = name.strip()
     cursor.execute("SELECT person_id FROM person WHERE name=%s LIMIT 1", (name,))
@@ -70,7 +67,6 @@ def get_person_id(cursor, name):
         return row["person_id"]
     cursor.execute("INSERT INTO person (name) VALUES (%s)", (name,))
     return cursor.lastrowid
-
 
 def save(handler):
     """Open a connection, run handler(cursor, data, day, time), commit, and return JSON."""
@@ -98,7 +94,6 @@ def save(handler):
         return fail("Could not save the data. Please check the values and try again.", 500)
     finally:
         connection.close()
-
 
 # --- DASHBOARD ENDPOINT (GET) ---
 @api_bp.route('/dashboard', methods=['GET'])
@@ -180,8 +175,54 @@ def get_dashboard_data():
         latest.setdefault(n["block"], n["endCrates"])
     shift_end = sum(latest.values()) if latest else awaiting
 
+    # --- ISSUE 1 FIX: CALCULATE SUPPLY CHAIN MODELS ---
+    total_labor_hours = sum(s["hours"] or 0 for s in shifts)
+    total_rejected = sum(s["rejected"] for s in shifts)
+    total_crates = sum(s["crates"] for s in shifts)
+    
+    try:
+        harvest_rate = calculate_harvest_rate(float(total_crates), float(total_labor_hours)) if total_labor_hours > 0 else 0.0
+    except Exception:
+        harvest_rate = 0.0
+
+    try:
+        rejection_data = calculate_crate_rejection_rate(float(total_crates), float(total_rejected)) if total_crates > 0 else {"rejection_rate": 0.0}
+        rejection_rate = rejection_data["rejection_rate"]
+    except Exception:
+        rejection_rate = 0.0
+
+    total_loaded = sum(t["loaded"] for t in trips)
+    vehicle_capacity = 1000 # Assuming 1000 per trip
+    try:
+        utilisation = calculate_vehicle_utilisation(total_loaded, vehicle_capacity) if vehicle_capacity > 0 else 0.0
+    except Exception:
+        utilisation = 0.0
+
+    try:
+        mock_completion_time = "16:30" 
+        cutoff_data = predict_cutoff_breach(mock_completion_time)
+        cutoff_status = cutoff_data["status"]
+        cutoff_message = cutoff_data["message"]
+    except Exception:
+        cutoff_status = "GREEN"
+        cutoff_message = "ON TRACK"
+
+    try:
+        gap = max(0, vehicle_capacity - total_loaded)
+        bottleneck_msg = classify_bottleneck(gap, vehicle_capacity)
+    except Exception:
+        bottleneck_msg = "No bottleneck"
+
     return jsonify({
         "kpis": {"harvestedToday": harvested, "awaitingTransport": awaiting, "shiftEnd": shift_end},
+        "model_kpis": {
+            "harvest_rate": harvest_rate,
+            "rejection_rate": rejection_rate,
+            "vehicle_utilisation": utilisation,
+            "cutoff_status": cutoff_status,
+            "cutoff_message": cutoff_message,
+            "bottleneck": bottleneck_msg
+        },
         "harvestChart": {"labels": [f"{s['leader']} ({s['start']})" for s in shifts],
                          "values": [s["crates"] for s in shifts]},
         "destinationChart": {"labels": list(totals), "values": list(totals.values())},
@@ -191,8 +232,7 @@ def get_dashboard_data():
         "notes": [{"endCrates": n["endCrates"], "delays": n["delays"], "remarks": n["remarks"]} for n in notes],
     }), 200
 
-
-# --- TEAM ENDPOINT (POST): Clock In adds a team, Clock Out closes it ---
+# --- TEAM ENDPOINT (POST) ---
 @api_bp.route('/team', methods=['POST'])
 def save_team_info():
     def handler(cursor, d, day, time):
@@ -215,8 +255,7 @@ def save_team_info():
              get_date_time_id(cursor, day, time), get_person_id(cursor, d["teamInfo"])))
     return save(handler)
 
-
-# --- HARVEST ENDPOINT (POST): the team leader's name is matched to today's team ---
+# --- HARVEST ENDPOINT (POST) ---
 @api_bp.route('/harvest', methods=['POST'])
 def save_harvest():
     def handler(cursor, d, day, time):
@@ -238,7 +277,7 @@ def save_harvest():
         team = cursor.fetchone()
         if team:
             team_id = team["team_id"]
-        else:  # leader has not clocked in: create the person and team automatically
+        else: 
             try:
                 workers = non_negative_int(d.get("NumOfWorkers"), "NumOfWorkers") or 0
             except ValueError as e:
@@ -256,7 +295,6 @@ def save_harvest():
              team_id, get_date_time_id(cursor, day, time)))
     return save(handler)
 
-
 # --- LOGISTICS ENDPOINT (POST) ---
 @api_bp.route('/logistics', methods=['POST'])
 def save_logistics():
@@ -272,7 +310,6 @@ def save_logistics():
              get_date_time_id(cursor, day, time), clean_block(d.get("operationBlock"))))
     return save(handler)
 
-
 # --- NOTES ENDPOINT (POST) ---
 @api_bp.route('/notes', methods=['POST'])
 def save_notes():
@@ -286,10 +323,8 @@ def save_notes():
              get_date_time_id(cursor, day, time), clean_block(d.get("operationBlock"))))
     return save(handler)
 
-
 # ---------- validation helper ----------
 def non_negative_int(value, label, required=False):
-    """Return an int >= 0, or None when optional and empty. Raises ValueError with a clear message."""
     if value in (None, ""):
         if required:
             raise ValueError(f"{label} is required")
@@ -302,7 +337,6 @@ def non_negative_int(value, label, required=False):
         raise ValueError(f"{label} cannot be negative")
     return number
 
-
 HARVEST_SELECT = (
     "SELECT h.harvest_crates_id AS id, h.total_crates_number AS crates, h.tree_number AS trees, "
     "h.rejected_crates_number AS rejected, p.name AS leader, t.block, d.`date`, d.`time` "
@@ -310,19 +344,13 @@ HARVEST_SELECT = (
     "JOIN person p ON p.person_id=t.team_leader_id "
     "JOIN date_time d ON d.date_time_id=h.date_time_id ")
 
-
 def harvest_row(r):
     return {"id": r["id"], "crates": r["crates"], "trees": r["trees"], "rejected": r["rejected"],
             "leader": r["leader"], "block": r["block"], "date": str(r["date"]), "time": hhmm(r["time"])}
 
-
 # --- GET ALL HARVESTS WITH PAGINATION & FILTERING ---
 @api_bp.route('/harvests', methods=['GET'])
 def get_all_harvests():
-    """
-    List harvest entries from the database.
-    Example: /api/harvests?page=1&limit=5&block=Block1&date=2026-11-24
-    """
     try:
         page = non_negative_int(request.args.get("page", 1), "page", required=True)
         limit = non_negative_int(request.args.get("limit", 10), "limit", required=True)
@@ -366,7 +394,6 @@ def get_all_harvests():
 
     return jsonify({"page": page, "limit": limit, "total_results": total, "data": rows}), 200
 
-
 # --- GET ONE HARVEST ---
 @api_bp.route('/harvest/<int:harvest_id>', methods=['GET'])
 def get_harvest(harvest_id):
@@ -388,11 +415,9 @@ def get_harvest(harvest_id):
         return fail("Harvest record not found", 404)
     return jsonify(harvest_row(row)), 200
 
-
 # --- UPDATE HARVEST (PUT) ---
 @api_bp.route('/harvest/<int:harvest_id>', methods=['PUT'])
 def update_harvest(harvest_id):
-    """Update crates, trees and rejected crates of an existing harvest entry."""
     data = request.get_json(silent=True) or {}
     try:
         crates = non_negative_int(data.get("CratesHarvested"), "CratesHarvested", required=True)

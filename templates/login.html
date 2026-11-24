@@ -99,6 +99,9 @@
             // 4. Check credentials (admin / password123) and transition
             setTimeout(function() {
                 if (username === "admin" && password === "password123") {
+                    // THIS IS THE MAGIC LINE: It tells the browser to unlock the home page
+                    localStorage.setItem("isLoggedIn", "true");
+                    
                     window.location.href = "/dashboard"; 
                 } else {
                     alert("Invalid credentials. Please use admin / password123 for this prototype.");

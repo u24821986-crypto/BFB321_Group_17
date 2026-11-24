@@ -118,15 +118,13 @@ All Python models have been tested and validated using `pytest`.
 *   Git & GitHub
 *   GitHub Copilot
 
-  ### Test Login Credentials
+---
+ ### Test Login Credentials
 To access the management dashboard and daily operations pages, the system is protected by a secure login screen. Because this is a prototype demonstration, the authentication is simulated using a hard-coded test credential.
 
 Use the following details on the login page:
 *   **Username:** `admin`
 *   **Password:** `password123`
-
----
-
 
 ---
 

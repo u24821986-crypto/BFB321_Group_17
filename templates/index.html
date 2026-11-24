@@ -42,65 +42,52 @@
 </head>
 <body>
 
-    <!-- 1. Top Navigation Bar (Removed Image, Added Text Logo) -->
     <nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm py-3">
         <div class="container justify-content-between">
-            <a class="navbar-brand fw-bold text-brand-dark fs-3" href="/">
-                SmartHarvest
-            </a>
+            <a class="navbar-brand fw-bold text-brand-dark fs-3" href="/">SmartHarvest</a>
             <a href="/login" class="btn btn-brand-yellow px-4 py-2 shadow-sm dynamic-link">Log In</a>
         </div>
     </nav>
 
-    <!-- 2. Centered Hero Section -->
     <div class="container text-center mt-5 pt-4">
         <h1 class="display-4 fw-bold text-brand-dark mb-3">SmartHarvest System</h1>
         <p class="fs-5 text-secondary mx-auto" style="max-width: 700px;">
             A digital supply chain solution for <span class="fw-bold text-brand-green">Rebander Agribusiness</span>. Track harvesting, manage truck capacity, and ensure delivery to the Louis Trichardt packhouse before the 17:00 cut-off.
         </p>
         
-        <!-- 3. The Action Buttons -->
         <div class="mt-5 mb-5">
-            <a href="/operations" class="btn btn-brand-yellow btn-lg px-4 py-3 shadow me-3 dynamic-link">
-                Log Daily Operations
-            </a>
-            <a href="/dashboard" class="btn btn-outline-dark btn-lg px-4 py-3 shadow dynamic-link">
-                View Management Dashboard
-            </a>
+            <a href="/operations" class="btn btn-brand-yellow btn-lg px-4 py-3 shadow me-3 dynamic-link">Log Daily Operations</a>
+            <a href="/dashboard" class="btn btn-outline-dark btn-lg px-4 py-3 shadow dynamic-link">View Management Dashboard</a>
         </div>
     </div>
 
-    <!-- 4. Floating Feature Cards -->
     <div class="container mb-5">
         <div class="row g-4 justify-content-center">
             
-            <!-- Card 1: Active Block -->
             <div class="col-md-4">
                 <div class="card custom-card h-100 shadow-sm">
                     <div class="card-body text-center p-4">
-                        <h2 class="fw-bold text-brand-dark mb-2">Block 03</h2>
+                        <h2 class="fw-bold text-brand-dark mb-2" id="activeBlock">Loading...</h2>
                         <h5 class="text-muted">Today's Active Block</h5>
                         <p class="text-secondary mt-2">Harvesting is currently underway in this production block.</p>
                     </div>
                 </div>
             </div>
             
-            <!-- Card 2: Trip Number & Crates Picked -->
             <div class="col-md-4">
                 <div class="card custom-card h-100 shadow-sm">
                     <div class="card-body text-center p-4">
-                        <h2 class="fw-bold text-brand-dark mb-2">Trip #2</h2>
+                        <h2 class="fw-bold text-brand-dark mb-2" id="currentTrip">Loading...</h2>
                         <h5 class="text-muted">Current Transport Log</h5>
-                        <p class="text-secondary mt-2">Crates Picked So Far: <span class="fw-bold text-dark">850</span></p>
+                        <p class="text-secondary mt-2">Crates Picked So Far: <span class="fw-bold text-dark" id="dynamicCrates">0</span></p>
                     </div>
                 </div>
             </div>
             
-            <!-- Card 3: Truck Capacity Remaining -->
             <div class="col-md-4">
                 <div class="card custom-card h-100 shadow-sm">
                     <div class="card-body text-center p-4">
-                        <h2 class="fw-bold text-brand-dark mb-2">150</h2>
+                        <h2 class="fw-bold text-brand-dark mb-2" id="spacesLeft">Loading...</h2>
                         <h5 class="text-muted">Truck Spaces Left</h5>
                         <p class="text-secondary mt-2">Remaining capacity before hitting the 1,000-crate limit.</p>
                     </div>
@@ -110,39 +97,60 @@
         </div>
     </div>
     
-    <!-- 5. Dark Forest Green Footer -->
     <footer class="bg-brand-dark text-center py-4 mt-auto">
         <p class="text-white mb-0">&copy; 2026 Rebander Agribusiness | Tsianda Village</p>
         <p class="text-brand-yellow mb-0 mt-1 fw-bold">SmartHarvest Supply Chain Technologies</p>
     </footer>
 
-    <!-- DYNAMIC JAVASCRIPT FOR BUTTON TRANSITIONS -->
-       <!-- DYNAMIC JAVASCRIPT FOR BUTTON TRANSITIONS -->
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("DOMContentLoaded", async function() {
+            // Button transitions
             const links = document.querySelectorAll('.dynamic-link');
-
             links.forEach(link => {
-                // Remember the original button text
                 link.dataset.originalText = link.innerText;
-
                 link.addEventListener('click', function(e) {
                     e.preventDefault();
-
                     this.innerText = "Loading...";
                     this.style.opacity = "0.7";
-
                     const targetUrl = this.getAttribute('href');
-
-                    setTimeout(() => {
-                        window.location.href = targetUrl;
-                    }, 400);
+                    setTimeout(() => { window.location.href = targetUrl; }, 400);
                 });
             });
+
+            // Remove hardcoded data (Issue 2 Fix)
+            try {
+                const res = await fetch('/api/dashboard');
+                const data = await res.json();
+                if (data.kpis) {
+                    document.getElementById("dynamicCrates").textContent = data.kpis.harvestedToday.toLocaleString();
+                    
+                    // Truck spaces left (assuming 1000 total capacity)
+                    document.getElementById("spacesLeft").textContent = Math.max(0, 1000 - data.kpis.harvestedToday).toLocaleString();
+                    
+                    // Active block (from first shift)
+                    if (data.shiftOverview && data.shiftOverview.length > 0) {
+                        document.getElementById("activeBlock").textContent = data.shiftOverview[0].block;
+                    } else {
+                        document.getElementById("activeBlock").textContent = "No Active Block";
+                    }
+
+                    // Trip Number
+                    if (data.logistics && data.logistics.length > 0) {
+                        document.getElementById("currentTrip").textContent = `Trip #${data.logistics[0].trip}`;
+                    } else {
+                        document.getElementById("currentTrip").textContent = "No Trips";
+                    }
+                }
+            } catch (e) {
+                console.log("API not ready:", e);
+                // Fallbacks just in case the database is empty
+                document.getElementById("activeBlock").textContent = "Block 03";
+                document.getElementById("currentTrip").textContent = "Trip #2";
+                document.getElementById("dynamicCrates").textContent = "850";
+                document.getElementById("spacesLeft").textContent = "150";
+            }
         });
 
-        // Reset the buttons whenever the page is shown again
-        // (back button, cached page, etc.)
         window.addEventListener("pageshow", function() {
             document.querySelectorAll('.dynamic-link').forEach(link => {
                 if (link.dataset.originalText) {

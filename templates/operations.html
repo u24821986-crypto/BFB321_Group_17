@@ -75,6 +75,24 @@
                                 <label class="form-label">Team Leader <span class="small text-secondary">(required)</span></label>
                                 <input type="text" name="Team" class="form-control" required>
                             </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-6">
+                                    <label class="form-label">Block</label>
+                                    <select name="operationBlock" class="form-select">
+                                        <option value="Block1">Block 1</option>
+                                        <option value="Block2">Block 2</option>
+                                        <option value="Block3">Block 3</option>
+                                        <option value="Block4">Block 4</option>
+                                        <option value="Block5">Block 5</option>
+                                        <option value="Block6">Block 6</option>
+                                        <option value="Block7">Block 7</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Number of Workers</label>
+                                    <input type="number" name="NumOfWorkers" class="form-control" min="0">
+                                </div>
+                            </div>
                             <div class="mb-3">
                                 <label class="form-label">Crates Harvested <span class="small text-secondary">(required)</span></label>
                                 <input type="number" name="CratesHarvested" class="form-control" min="0" required>

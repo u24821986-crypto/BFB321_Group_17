@@ -236,13 +236,24 @@ def save_harvest():
             "WHERE p.name=%s AND x.`date`=%s ORDER BY t.team_id DESC LIMIT 1",
             (d["Team"].strip(), day))
         team = cursor.fetchone()
-        if not team:
-            return "No team found for that leader on this date. Clock the team in first."
+        if team:
+            team_id = team["team_id"]
+        else:  # leader has not clocked in: create the person and team automatically
+            try:
+                workers = non_negative_int(d.get("NumOfWorkers"), "NumOfWorkers") or 0
+            except ValueError as e:
+                return str(e)
+            block = clean_block(d.get("operationBlock")) if d.get("operationBlock") else "Block 1"
+            cursor.execute(
+                "INSERT INTO team (clock_in_time, num_workers, block, date_time_id, team_leader_id) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                (time, workers, block, get_date_time_id(cursor, day, time), get_person_id(cursor, d["Team"])))
+            team_id = cursor.lastrowid
         cursor.execute(
             "INSERT INTO harvest_crates (total_crates_number, tree_number, rejected_crates_number, team_id, date_time_id) "
             "VALUES (%s, %s, %s, %s, %s)",
             (d["CratesHarvested"], d.get("NumOfTrees") or 0, d.get("RejectedCrates") or 0,
-             team["team_id"], get_date_time_id(cursor, day, time)))
+             team_id, get_date_time_id(cursor, day, time)))
     return save(handler)
 
 

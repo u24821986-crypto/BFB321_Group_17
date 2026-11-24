@@ -55,9 +55,13 @@
             A digital supply chain solution for <span class="fw-bold text-brand-green">Rebander Agribusiness</span>. Track harvesting, manage truck capacity, and ensure delivery to the Louis Trichardt packhouse before the 17:00 cut-off.
         </p>
         
+        <!-- THE LOCK LOGIC -->
         <div class="mt-5 mb-5">
-            <a href="/operations" class="btn btn-brand-yellow btn-lg px-4 py-3 shadow me-3 dynamic-link">Log Daily Operations</a>
-            <a href="/dashboard" class="btn btn-outline-dark btn-lg px-4 py-3 shadow dynamic-link">View Management Dashboard</a>
+            <div id="lockedButtons" class="d-none">
+                <a href="/operations" class="btn btn-brand-yellow btn-lg px-4 py-3 shadow me-3 dynamic-link">Log Daily Operations</a>
+                <a href="/dashboard" class="btn btn-outline-dark btn-lg px-4 py-3 shadow dynamic-link">View Management Dashboard</a>
+            </div>
+            <p id="lockedMessage" class="text-muted mt-3 fs-5 fw-bold">🔒 Please log in to unlock the system.</p>
         </div>
     </div>
 
@@ -117,24 +121,20 @@
                 });
             });
 
-            // Remove hardcoded data (Issue 2 Fix)
+            // Remove hardcoded data
             try {
                 const res = await fetch('/api/dashboard');
                 const data = await res.json();
                 if (data.kpis) {
                     document.getElementById("dynamicCrates").textContent = data.kpis.harvestedToday.toLocaleString();
-                    
-                    // Truck spaces left (assuming 1000 total capacity)
                     document.getElementById("spacesLeft").textContent = Math.max(0, 1000 - data.kpis.harvestedToday).toLocaleString();
                     
-                    // Active block (from first shift)
                     if (data.shiftOverview && data.shiftOverview.length > 0) {
                         document.getElementById("activeBlock").textContent = data.shiftOverview[0].block;
                     } else {
                         document.getElementById("activeBlock").textContent = "No Active Block";
                     }
 
-                    // Trip Number
                     if (data.logistics && data.logistics.length > 0) {
                         document.getElementById("currentTrip").textContent = `Trip #${data.logistics[0].trip}`;
                     } else {
@@ -143,7 +143,6 @@
                 }
             } catch (e) {
                 console.log("API not ready:", e);
-                // Fallbacks just in case the database is empty
                 document.getElementById("activeBlock").textContent = "Block 03";
                 document.getElementById("currentTrip").textContent = "Trip #2";
                 document.getElementById("dynamicCrates").textContent = "850";
@@ -159,6 +158,12 @@
                 link.style.opacity = "1";
             });
         });
+
+        // THIS IS THE LOCK/UNLOCK CODE
+        if (localStorage.getItem("isLoggedIn") === "true") {
+            document.getElementById("lockedButtons").classList.remove("d-none");
+            document.getElementById("lockedMessage").style.display = "none";
+        }
     </script>
 </body>
 </html>

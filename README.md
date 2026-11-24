@@ -24,8 +24,8 @@ Before running the project, ensure the following software is installed:
 *   Visual Studio Code (recommended)
 
 ### 1. Clone the Repository
-git clone https://github.com/u24821986-crypto/smart-harvest.git
-cd smart-harvest
+git clone https://github.com/u24821986-crypto/BFB321_Group_17.git
+cd BFB321_Group_17
 
 ### 2. Create and Activate a Virtual Environment
 **Windows (PowerShell):**

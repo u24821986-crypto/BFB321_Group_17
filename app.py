@@ -1,3 +1,4 @@
+import logging
 import os
 
 from flask import Flask, jsonify, render_template
@@ -9,15 +10,16 @@ except Exception:  # config.py is optional for this setup
 
 
 def create_app():
+    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"),
+                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     app = Flask(__name__)
 
     if get_config:
         app.config.from_object(get_config(os.getenv("FLASK_ENV", "production")))
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-only-insecure-key")
 
-
+    # API routes live under /api (routes/api.py)
     from routes.api import api_bp
-    
     app.register_blueprint(api_bp, url_prefix="/api")
 
     # ---- Pages ----

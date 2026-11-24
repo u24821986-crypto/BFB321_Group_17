@@ -2,11 +2,12 @@
 
 **Module:** BFB 321 - Supply Chain Technologies and Project
 **Project:** Semester 2, 2026
+**Group Number:** 17
 
 ## Project Description
 SmartHarvest is a web-based supply chain management solution designed for Rembander Agribusiness (Tsianda Village). The system helps track daily harvesting operations, manage transport vehicle capacity, identify operational bottlenecks (labour vs transport), and ensure deliveries meet the packhouse cut-off time (17:00).
 
-## Group Members
+## Group Members 
 *   **Seloko Mothupi** - 24804232
 *   **Mfanelo Shilubana** - 18142002
 *   **Chantel Mogale** - 24821986

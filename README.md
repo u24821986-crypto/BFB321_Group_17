@@ -166,7 +166,7 @@ mysql -u root -p smartharvest < backups/smartharvest_2026-11-20.sql
 
 ### Live Deployment (Render)
 The application is hosted on Render. 
-**Live URL:** https://smart-harvest-qhls.onrender.com
+**Live URL:** [https://smart-harvest-qhls.onrender.com](https://smart-harvest-qh1s.onrender.com)
 
 **Render Deployment Runbook:**
 1. Push changes to the `main` branch on GitHub.

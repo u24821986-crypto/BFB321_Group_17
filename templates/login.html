@@ -54,13 +54,13 @@
                             <!-- Username Input -->
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Username</label>
-                                <input type="text" name="username" class="form-control form-control-lg" placeholder="Enter your username" required>
+                                <input type="text" name="username" id="username" class="form-control form-control-lg" placeholder="Enter your username" required>
                             </div>
 
                             <!-- Password Input -->
                             <div class="mb-4">
                                 <label class="form-label fw-semibold">Password</label>
-                                <input type="password" name="password" class="form-control form-control-lg" placeholder="Enter password" required>
+                                <input type="password" name="password" id="password" class="form-control form-control-lg" placeholder="Enter password" required>
                             </div>
 
                             <!-- Submit Button -->
@@ -87,15 +87,24 @@
             // 1. Stop the page from doing a normal HTML reload
             event.preventDefault(); 
             
-            // 2. Grab the button and change it to show loading state (Dynamic UI)
+            // 2. Grab the button and inputs
             const btn = document.getElementById('loginBtn');
-            const originalText = btn.innerText;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            // 3. Show loading state
             btn.innerText = "Logging in...";
             btn.disabled = true;
 
-            // 3. Smoothly transition to the Flask route after 1 second
+            // 4. Check credentials (admin / password123) and transition
             setTimeout(function() {
-                window.location.href = "/dashboard"; // FIXED: Points to Flask route now
+                if (username === "admin" && password === "password123") {
+                    window.location.href = "/dashboard"; 
+                } else {
+                    alert("Invalid credentials. Please use admin / password123 for this prototype.");
+                    btn.innerText = "Log In";
+                    btn.disabled = false;
+                }
             }, 1000);
         });
     </script>

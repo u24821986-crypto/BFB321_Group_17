@@ -133,13 +133,16 @@ Use the following details on the login page:
 ### API Endpoints
 The application exposes the following REST API endpoints:
 
-| Method | Endpoint | Description | Request Body (JSON) | Response |
+| Method | Endpoint | Description | Request Body (JSON) | Status Codes |
 | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/dashboard` | Fetches data for KPI cards and charts | None | `{"harvestValues": [82...], "destinationValues": [420...]}` |
-| `POST` | `/api/team` | Saves Team Information | `{"teamInfo": "John", "operationBlock": "Block1"}` | `{"status": "success", "message": "Team info saved"}` |
-| `POST` | `/api/harvest` | Saves Harvested Crates data | `{"CratesHarvested": 100, "NumOfTrees": 5}` | `{"status": "success", "message": "Harvest saved"}` |
-| `POST` | `/api/logistics` | Saves Logistics data | `{"tripNumber": 1, "vehicleType": "Truck"}` | `{"status": "success", "message": "Logistics saved"}` |
-| `POST` | `/api/notes` | Saves Operational Notes | `{"delaysInfo": "None", "remarksInfo": "Good"}` | `{"status": "success", "message": "Notes saved"}` |
+| `GET` | `/api/dashboard` | Fetches data for KPIs, charts, and tables | None | 200, 500 |
+| `POST` | `/api/team` | Saves Team Information (Clock In/Out) | `{"teamInfo": "John", "operationBlock": "Block 1"}` | 201, 400, 500 |
+| `POST` | `/api/harvest` | Saves Harvested Crates data | `{"CratesHarvested": 100, "NumOfTrees": 5}` | 201, 400, 500 |
+| `POST` | `/api/logistics` | Saves Logistics data | `{"tripNumber": 1, "vehicleType": "Truck"}` | 201, 400, 500 |
+| `POST` | `/api/notes` | Saves Operational Notes | `{"endShiftCrates": 40, "remarksInfo": "Good"}` | 201, 400, 500 |
+| `GET` | `/api/harvests` | Lists harvests (paginated & filtered) | None | 200, 400, 500 |
+| `GET` | `/api/harvest/<id>` | Fetches a single harvest record | None | 200, 404, 500 |
+| `PUT` | `/api/harvest/<id>` | Updates an existing harvest record | `{"CratesHarvested": 120}` | 200, 400, 404, 500 |
 
 ### Environment Variables & Configurations
 The application uses a `.env` file for configuration. A template is provided in the repository as `.env.example`. To run the app locally, create a `.env` file and add your database credentials and secret key. Do not commit the `.env` file to GitHub.

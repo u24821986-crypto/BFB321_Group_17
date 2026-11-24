@@ -15,15 +15,10 @@ def create_app():
         app.config.from_object(get_config(os.getenv("FLASK_ENV", "production")))
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-only-insecure-key")
 
-    # Existing SQLite API
+
     from routes.api import api_bp
     
     app.register_blueprint(api_bp, url_prefix="/api")
-    
-    # New MySQL API
-    from routes.api_v2 import api_bp as api_v2_bp
-    
-    app.register_blueprint(api_v2_bp, url_prefix="/api_v2")
 
     # ---- Pages ----
     @app.route("/")
